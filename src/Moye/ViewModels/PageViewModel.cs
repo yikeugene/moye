@@ -12,6 +12,6 @@ public sealed class PageViewModel(NotePage page, int number, double zoom) : Obse
     public double Zoom { get => _zoom; set { if (Set(ref _zoom, value)) { Notify(nameof(DisplayWidth)); Notify(nameof(DisplayHeight)); } } }
     public double DisplayWidth => Page.Width * Zoom;
     public double DisplayHeight => Page.Height * Zoom;
-    public string Caption => $"{Number:D2}  ·  {(Page.Pdf is not null ? "PDF" : Page.Template switch { PaperTemplate.Grid => "Grid", PaperTemplate.Ruled => "Ruled", _ => "Blank" })}";
+    public string Caption => $"{Number:D2}  ·  {(Page.Pdf is not null ? "PDF" : Page.Template switch { PaperTemplate.Grid => "Grid", PaperTemplate.Ruled => "Ruled", PaperTemplate.DotGrid => "Dot Grid", PaperTemplate.Cornell => "Cornell", PaperTemplate.Graph => "Graph", _ => "Blank" })}";
     public BitmapSource? Thumbnail { get => _thumbnail; set => Set(ref _thumbnail, value); }
 }

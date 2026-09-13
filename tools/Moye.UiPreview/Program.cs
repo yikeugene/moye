@@ -36,6 +36,7 @@ internal static class Program
             application.Resources = ReadApplicationResources(Path.Combine(repositoryRoot, "src", "Moye", "App.xaml"));
             using var repository = new FixtureRepository();
             var window = new MainWindow(repository);
+            VerifyWritingCommands(window);
             if (new WindowInteropHelper(window).Handle != IntPtr.Zero)
                 throw new InvalidOperationException("The preview must not create a native application window.");
 
@@ -140,6 +141,47 @@ internal static class Program
                 reports.Add(report);
             }
 
+            // Exercise the compiled focus chrome without changing WindowStyle or
+            // creating a native window. Save-error UI remains separately visible.
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            typeof(MainWindow).GetField("_focusMode", flags)!.SetValue(window, true);
+            typeof(MainWindow).GetMethod("ApplyFocusChrome", flags)!.Invoke(window, null);
+            ((FrameworkElement)window.FindName("Sidebar")).Visibility = Visibility.Collapsed;
+            ((ColumnDefinition)window.FindName("SidebarColumn")).Width = new GridLength(0);
+            foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
+            {
+                var fileName = $"ui-preview-focus-{width}.png";
+                SaveImage(output, fileName, RenderElement(content, width, height));
+                VerifyDetached(content, window);
+                reports.Add(MeasureButtons(content, width, height, fileName, "focus", "ExitFocusButton"));
+                if (((FrameworkElement)window.FindName("Viewport")).ActualHeight < height - 1)
+                    throw new InvalidOperationException("Focus mode must reclaim the header, tools and footer space.");
+            }
+            typeof(MainWindow).GetField("_focusMode", flags)!.SetValue(window, false);
+            typeof(MainWindow).GetMethod("ApplyFocusChrome", flags)!.Invoke(window, null);
+
+            var presetFixture = WritingPreferences.CreateDefault();
+            presetFixture.Presets[0].Width = .5; presetFixture.Presets[0].Opacity = .65;
+            var presetDialog = new PresetManagerDialog(null!, presetFixture);
+            var presetContent = (FrameworkElement)presetDialog.Content; presetDialog.Content = null;
+            TextElement.SetFontFamily(presetContent, window.FontFamily);
+            TextElement.SetFontSize(presetContent, window.FontSize);
+            TextElement.SetForeground(presetContent, window.Foreground);
+            if (!(bool)typeof(PresetManagerDialog).GetMethod("StoreEditor", flags)!.Invoke(presetDialog, null)! ||
+                presetDialog.Preferences.Presets[0].Width != .5 || presetDialog.Preferences.Presets[0].Opacity != .65)
+                throw new InvalidOperationException("Opening and saving presets must preserve exact thickness and opacity.");
+            var managerList = (ListBox)typeof(PresetManagerDialog).GetField("_list", flags)!.GetValue(presetDialog)!;
+            managerList.SelectedIndex = 2;
+            if (!(bool)typeof(PresetManagerDialog).GetMethod("CommitSelection", flags)!.Invoke(presetDialog, null)! ||
+                presetDialog.Preferences.LastPresetId != presetDialog.Preferences.Presets[2].Id ||
+                presetFixture.LastPresetId != presetFixture.Presets[0].Id)
+                throw new InvalidOperationException("The manager must activate its chosen preset and keep the original preferences isolated.");
+            managerList.SelectedIndex = 0;
+            var presetSurface = new Border { Background = Brushes.White, Child = presetContent };
+            SaveImage(output, "ui-preview-presets.png", RenderElement(presetSurface, 744, 620));
+            VerifyDetached(presetSurface, presetDialog);
+            reports.Add(MeasureButtons(presetSurface, 744, 620, "ui-preview-presets.png", "presets"));
+
             var picker = new PaperTemplatePicker { SelectedTemplate = PaperTemplate.Ruled };
             var pickerPanel = new StackPanel();
             pickerPanel.Children.Add(new TextBlock { Text = "Choose your paper", FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) });
@@ -148,11 +190,11 @@ internal static class Program
             TextElement.SetFontFamily(pickerContent, window.FontFamily);
             TextElement.SetFontSize(pickerContent, window.FontSize);
             TextElement.SetForeground(pickerContent, window.Foreground);
-            SaveImage(output, "ui-preview-paper-templates.png", RenderElement(pickerContent, 454, 260));
+            SaveImage(output, "ui-preview-paper-templates.png", RenderElement(pickerContent, 454, 374));
             VerifyDetached(pickerContent, window);
-            if (Descendants<RadioButton>(picker).Count() != 3 || Descendants<RadioButton>(picker).Count(b => b.IsChecked == true) != 1)
-                throw new InvalidOperationException("The paper picker must show three choices and one selected template.");
-            reports.Add(MeasureButtons(pickerContent, 454, 260, "ui-preview-paper-templates.png", "paper-templates"));
+            if (Descendants<RadioButton>(picker).Count() != 6 || Descendants<RadioButton>(picker).Count(b => b.IsChecked == true) != 1)
+                throw new InvalidOperationException("The paper picker must show six choices and one selected template.");
+            reports.Add(MeasureButtons(pickerContent, 454, 374, "ui-preview-paper-templates.png", "paper-templates"));
 
             // A native owner is unnecessary for detached content and WPF rejects
             // assigning an owner that has never been shown. Null creates no HWND.
@@ -173,7 +215,7 @@ internal static class Program
             SaveImage(output, "ui-preview-new-notebook.png", RenderElement(dialogContent, 544, dialogHeight));
             VerifyDetached(dialogContent, notebookDialog);
             VerifyDetached(content, window);
-            if (Descendants<RadioButton>(dialogContent).Count() != 3 || !Descendants<Button>(dialogContent).Any(b => Equals(b.Content, "Create Notebook")))
+            if (Descendants<RadioButton>(dialogContent).Count() != 6 || !Descendants<Button>(dialogContent).Any(b => Equals(b.Content, "Create Notebook")))
                 throw new InvalidOperationException("The new-notebook dialog must render its paper choices and create action.");
             reports.Add(MeasureButtons(dialogContent, 544, dialogHeight, "ui-preview-new-notebook.png", "new-notebook"));
 
@@ -232,6 +274,30 @@ internal static class Program
     {
         if (PresentationSource.FromVisual(content) is not null || new WindowInteropHelper(window).Handle != IntPtr.Zero)
             throw new InvalidOperationException("The preview unexpectedly became attached to a native window.");
+    }
+
+    private static void VerifyWritingCommands(MainWindow window)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        object? Get(string name) => typeof(MainWindow).GetField(name, flags)!.GetValue(window);
+        void Set(string name, object value) => typeof(MainWindow).GetField(name, flags)!.SetValue(window, value);
+        object? Call(string name, params object[] args) => typeof(MainWindow).GetMethod(name, flags)!.Invoke(window, args);
+        var defaults = WritingPreferences.CreateDefault();
+        var blue = defaults.Presets[1]; blue.Opacity = .65;
+        Call("ApplyPreset", blue, false);
+        Set("_width", 4.75); Set("_color", Colors.Indigo);
+        Call("SetTool", InkTool.Highlighter); Call("SetTool", InkTool.Pen);
+        if (((WritingPreset)Get("_workingPreset")!).Id != blue.Id || (double)Get("_width")! != 4.75 ||
+            (Color)Get("_color")! != Colors.Indigo || ((WritingPreset)Get("_workingPreset")!).Opacity != .65)
+            throw new InvalidOperationException("Switching between pen and highlighter must recall the last working pen.");
+        Set("_canSavePreferences", false); Set("_ready", true);
+        Call("SetTool", InkTool.PointEraser);
+        if ((long)Get("_preferencesRevision")! != 0)
+            throw new InvalidOperationException("Read-only writing settings must not queue a save that blocks closing.");
+        ((Task)Call("SavePreferencesAsync", true)!).GetAwaiter().GetResult();
+        Set("_ready", false); Set("_canSavePreferences", true);
+        ((FrameworkElement)window.FindName("PreferencesRetryButton")).Visibility = Visibility.Collapsed;
+        Call("ApplyPreset", defaults.Presets[0], false);
     }
 
     private static void SaveImage(string output, string fileName, BitmapSource bitmap)

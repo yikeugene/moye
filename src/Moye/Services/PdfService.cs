@@ -345,14 +345,12 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
     private static void DrawPaper(XGraphics graphics, NotePage page)
     {
         graphics.DrawRectangle(XBrushes.White, 0, 0, page.Width, page.Height);
-        var line = new XPen(XColor.FromArgb(221, 231, 242), .7);
-        if (page.Template == PaperTemplate.Ruled)
-            for (var y = 80d; y < page.Height - 32; y += 32) graphics.DrawLine(line, 40, y, page.Width - 40, y);
-        if (page.Template == PaperTemplate.Grid)
-        {
-            for (var y = 24d; y < page.Height; y += 24) graphics.DrawLine(line, 0, y, page.Width, y);
-            for (var x = 24d; x < page.Width; x += 24) graphics.DrawLine(line, x, 0, x, page.Height);
-        }
+        foreach (var line in Controls.PaperPattern.Lines(page.Template, page.Width, page.Height))
+            graphics.DrawLine(new XPen(XColor.FromArgb(line.Color.R, line.Color.G, line.Color.B), line.Thickness),
+                line.Start.X, line.Start.Y, line.End.X, line.End.Y);
+        foreach (var dot in Controls.PaperPattern.Dots(page.Template, page.Width, page.Height))
+            graphics.DrawEllipse(new XSolidBrush(XColor.FromArgb(dot.Color.R, dot.Color.G, dot.Color.B)),
+                dot.Center.X - dot.Radius, dot.Center.Y - dot.Radius, dot.Radius * 2, dot.Radius * 2);
     }
 
     private static BitmapSource RenderPaper(NotePage page, int width, int height)
@@ -361,15 +359,7 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
         using (var drawing = visual.RenderOpen())
         {
             drawing.PushTransform(new ScaleTransform(width / page.Width, height / page.Height));
-            drawing.DrawRectangle(Brushes.White, null, new Rect(0, 0, page.Width, page.Height));
-            var pen = new Pen(new SolidColorBrush(Color.FromRgb(221, 231, 242)), .7);
-            if (page.Template == PaperTemplate.Ruled)
-                for (var y = 80d; y < page.Height - 32; y += 32) drawing.DrawLine(pen, new Point(40, y), new Point(page.Width - 40, y));
-            if (page.Template == PaperTemplate.Grid)
-            {
-                for (var y = 24d; y < page.Height; y += 24) drawing.DrawLine(pen, new Point(0, y), new Point(page.Width, y));
-                for (var x = 24d; x < page.Width; x += 24) drawing.DrawLine(pen, new Point(x, 0), new Point(x, page.Height));
-            }
+            Controls.PaperPattern.Draw(drawing, page.Template, page.Width, page.Height);
             drawing.Pop();
         }
         var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);

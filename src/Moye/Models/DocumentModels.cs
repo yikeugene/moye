@@ -2,7 +2,8 @@ using System.Text.Json;
 
 namespace Moye.Models;
 
-public enum PaperTemplate { Plain, Ruled, Grid }
+// Numeric values are persisted in existing notebooks and .moye backups.
+public enum PaperTemplate { Plain = 0, Ruled = 1, Grid = 2, DotGrid = 3, Cornell = 4, Graph = 5 }
 public enum InkTool { Pen, Highlighter, StrokeEraser, PointEraser, Lasso, Text, Select, Hand }
 
 public sealed class NotebookDocument

@@ -1,6 +1,6 @@
 <Window x:Class="Moye.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Moye.Controls"
         Title="Moye · Handwritten Notes" Width="1400" Height="960" MinWidth="1024" MinHeight="700" WindowStartupLocation="CenterScreen"
-        Loaded="WindowLoaded" Closing="WindowClosing" PreviewKeyDown="WindowKeyDown" Deactivated="WindowDeactivated"
+        Loaded="WindowLoaded" Closing="WindowClosing" PreviewKeyDown="WindowKeyDown" PreviewKeyUp="WindowKeyUp" Deactivated="WindowDeactivated"
         UseLayoutRounding="True" SnapsToDevicePixels="True" Language="en-US">
   <Window.Resources>
     <Style x:Key="ToolIcon" TargetType="Path">
@@ -13,9 +13,9 @@
   </Window.Resources>
   <Grid>
   <Grid x:Name="EditorShell" Visibility="{Binding IsEditorVisible, Converter={StaticResource BoolVisibility}}">
-    <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <!-- The open notebook is the top-level navigation; writing tools stay secondary. -->
-    <Border Background="White" BorderBrush="#E5E8EE" BorderThickness="0,0,0,1" IsEnabled="{Binding CanInteract}">
+    <Border x:Name="NotebookHeader" Height="68" Background="White" BorderBrush="#E5E8EE" BorderThickness="0,0,0,1" IsEnabled="{Binding CanInteract}">
       <Grid Margin="16,0">
         <Grid.ColumnDefinitions><ColumnDefinition Width="208"/><ColumnDefinition Width="*"/><ColumnDefinition Width="208"/></Grid.ColumnDefinitions>
         <Button Click="ShowNotebooksClick" HorizontalAlignment="Left" ToolTip="Open your notebooks" AutomationProperties.Name="All Notes">
@@ -93,16 +93,17 @@
         </Grid>
       </Border>
       <Grid Grid.Column="1">
-        <Grid.RowDefinitions><RowDefinition Height="72"/><RowDefinition Height="*"/><RowDefinition Height="48"/></Grid.RowDefinitions>
-        <Border Background="White" BorderBrush="#E1E5EB" BorderThickness="0,0,0,1" IsEnabled="{Binding CanInteract}">
-          <Grid Margin="12,0">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Border x:Name="WritingHeader" Background="White" BorderBrush="#E1E5EB" BorderThickness="0,0,0,1" IsEnabled="{Binding CanInteract}">
+          <StackPanel>
+          <Grid Margin="12,0" Height="72">
             <Grid.ColumnDefinitions><ColumnDefinition Width="50"/><ColumnDefinition Width="*"/><ColumnDefinition Width="98"/></Grid.ColumnDefinitions>
             <Button Content="&#xE8A0;" Click="ToggleSidebarClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Show or hide the sidebar (F9)" AutomationProperties.Name="Toggle Sidebar"/>
             <StackPanel x:Name="WritingTools" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <Button x:Name="PenButton" Tag="Pen" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Pressure-sensitive pen (B)" AutomationProperties.Name="Pen"><StackPanel><Path Data="M16,2 L22,8 10,20 3,22 5,15 Z M5,15 L10,20 M14,4 L20,10" Style="{StaticResource ToolIcon}"/><TextBlock Text="Pen" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button  Tag="Highlighter" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Highlighter (H)" AutomationProperties.Name="Highlighter"><StackPanel><Path Data="M12,3 L21,8 14,19 5,14 Z M7,15 L5,19 10,21 12,18 M3,23 L13,23 M10,6 L18,11" Style="{StaticResource ToolIcon}"/><TextBlock Text="Highlighter" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button x:Name="EraserButton" Tag="PointEraser" Style="{StaticResource ToolButton}" Click="EraserToolClick" ToolTip="Pixel Eraser (E); click to choose an eraser mode" AutomationProperties.Name="Eraser"><StackPanel><Path Data="M13,3 Q14,2 15,3 L22,10 Q23,11 22,12 L12,22 7,22 2,17 Q1,16 2,15 Z M7,10 L17,17 M12,22 L23,22" Style="{StaticResource ToolIcon}"/><TextBlock x:Name="EraserModeLabel" Text="Pixel" Style="{StaticResource ToolLabel}"/></StackPanel><Button.ContextMenu><ContextMenu><MenuItem Header="Pixel Eraser" Click="EraserMenuClick" Tag="PointEraser"/><MenuItem Header="Stroke Eraser" Click="EraserMenuClick" Tag="StrokeEraser"/></ContextMenu></Button.ContextMenu></Button>
-<Button  Tag="Lasso" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Lasso (L); Delete to remove, Ctrl+D to duplicate" AutomationProperties.Name="Lasso"><StackPanel><Path Data="M8,20 C-1,17 0,4 12,3 C24,1 27,16 15,20 C8,23 4,21 6,17 C8,13 12,21 8,25" Style="{StaticResource ToolIcon}"/><TextBlock Text="Lasso" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
+<Button Tag="Lasso" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Lasso (L); right-click for Copy, Cut and Paste" AutomationProperties.Name="Lasso"><StackPanel><Path Data="M8,20 C-1,17 0,4 12,3 C24,1 27,16 15,20 C8,23 4,21 6,17 C8,13 12,21 8,25" Style="{StaticResource ToolIcon}"/><TextBlock Text="Lasso" Style="{StaticResource ToolLabel}"/></StackPanel><Button.ContextMenu><ContextMenu><MenuItem Header="Copy Ink" InputGestureText="Ctrl+C" Click="CopyInkClick"/><MenuItem Header="Cut Ink" InputGestureText="Ctrl+X" Click="CutInkClick"/><MenuItem Header="Paste" InputGestureText="Ctrl+V" Click="PasteContentClick"/></ContextMenu></Button.ContextMenu></Button>
 <Button  Tag="Text" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Tap the page to add text (T)" AutomationProperties.Name="Text"><StackPanel><Path Data="M3,7 L3,3 23,3 23,7 M13,3 L13,23 M8,23 L18,23" Style="{StaticResource ToolIcon}"/><TextBlock Text="Text" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button  Tag="Select" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Move or resize text and images (V)" AutomationProperties.Name="Select"><StackPanel><Path Data="M4,2 L4,21 9,16 13,24 17,22 13,14 21,13 Z" Style="{StaticResource ToolIcon}"/><TextBlock Text="Select" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
               <Border Width="1" Height="28" Background="#E2E6ED" Margin="12,0"/>
@@ -115,8 +116,16 @@
               <Button Content="&#xE7A6;" Click="RedoClick" FontFamily="Segoe Fluent Icons" FontSize="18" IsEnabled="{Binding CanRedo}" ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Redo"/>
             </StackPanel>
           </Grid>
+          <DockPanel Margin="16,0,16,8" Height="44">
+            <Button Content="Presets…" Click="ManagePresetsClick" DockPanel.Dock="Right" FontSize="12" ToolTip="Save, rename, reorder or hide favourite pens" AutomationProperties.Name="Manage Pen Presets"/>
+            <Button x:Name="PreferencesRetryButton" Content="! Settings" Click="RetryPreferencesClick" DockPanel.Dock="Right" Visibility="Collapsed" Foreground="#BE563D"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" PanningMode="HorizontalOnly">
+              <StackPanel x:Name="FavouritePresets" Orientation="Horizontal"/>
+            </ScrollViewer>
+          </DockPanel>
+          </StackPanel>
         </Border>
-        <Grid Grid.Row="1" x:Name="Viewport" Background="#EDEFF3" PreviewTouchDown="ViewportTouchDown" PreviewTouchMove="ViewportTouchMove" PreviewTouchUp="ViewportTouchUp" LostTouchCapture="ViewportLostTouch" PreviewMouseWheel="ViewportMouseWheel">
+        <Grid Grid.Row="1" x:Name="Viewport" Background="#EDEFF3" PreviewTouchDown="ViewportTouchDown" PreviewTouchMove="ViewportTouchMove" PreviewTouchUp="ViewportTouchUp" LostTouchCapture="ViewportLostTouch" PreviewMouseWheel="ViewportMouseWheel" PreviewMouseLeftButtonDown="ViewportPanDown" PreviewMouseMove="ViewportPanMove" PreviewMouseLeftButtonUp="ViewportPanUp">
           <ListBox x:Name="PageList" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" ScrollViewer.PanningMode="None" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="1,1" Padding="36,28" Background="Transparent" SelectionChanged="PageSelectionChanged" AutomationProperties.Name="Continuous Notebook Pages">
             <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,28"/><Setter Property="Focusable" Value="False"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><ContentPresenter/></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
@@ -126,8 +135,9 @@
             </StackPanel></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
           <Border x:Name="BusyOverlay" Background="#DDEDEFF3" Visibility="{Binding IsBusy, Converter={StaticResource BoolVisibility}}"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><ProgressBar IsIndeterminate="True" Width="220" Height="4"/><TextBlock Text="{Binding Operation}" Margin="0,18,0,0" FontSize="16" HorizontalAlignment="Center"/></StackPanel></Border>
+          <Button x:Name="ExitFocusButton" Content="Exit Focus" Click="FocusClick" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Background="#EEFFFFFF" ToolTip="Exit Focus Mode (F11 or Esc)"/>
         </Grid>
-        <Border Grid.Row="2" Background="#F9FAFC" BorderBrush="#E1E5EB" BorderThickness="0,1,0,0" IsEnabled="{Binding CanInteract}">
+        <Border x:Name="EditorFooter" Grid.Row="2" Height="48" Background="#F9FAFC" BorderBrush="#E1E5EB" BorderThickness="0,1,0,0" IsEnabled="{Binding CanInteract}">
           <Grid Margin="12,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Button Content="{Binding CurrentPageText}" Click="ShowPagesClick" Foreground="#68758A" FontSize="12" ToolTip="Open page thumbnails"/>
             <Grid Grid.Column="1" VerticalAlignment="Center" Margin="14,0,4,0">
@@ -157,7 +167,8 @@
           <WrapPanel x:Name="ColorPalette" Margin="-3,0"><Button Tag="#FF25334A" Click="ColorClick" ToolTip="Ink Black" AutomationProperties.Name="Ink Black" Padding="8,6"><Ellipse Fill="#25334A" Width="24" Height="24"/></Button><Button Tag="#FF326AE8" Click="ColorClick" ToolTip="Blue" AutomationProperties.Name="Blue" Padding="8,6"><Ellipse Fill="#326AE8" Width="24" Height="24"/></Button><Button Tag="#FFE36072" Click="ColorClick" ToolTip="Coral" AutomationProperties.Name="Coral" Padding="8,6"><Ellipse Fill="#E36072" Width="24" Height="24"/></Button><Button Tag="#FF23A487" Click="ColorClick" ToolTip="Green" AutomationProperties.Name="Green" Padding="8,6"><Ellipse Fill="#23A487" Width="24" Height="24"/></Button><Button Tag="#FFF4CF58" Click="ColorClick" ToolTip="Yellow" AutomationProperties.Name="Yellow" Padding="8,6"><Ellipse Fill="#F4CF58" Width="24" Height="24"/></Button></WrapPanel>
           <Button Content="Custom Color…" Click="CustomColorClick" Foreground="#326AE8" HorizontalAlignment="Left" Margin="-8,2,0,10"/>
           <TextBlock Text="Pen Thickness" FontSize="12" Foreground="#8791A1" Margin="0,0,0,8"/>
-          <ComboBox x:Name="WidthPicker" SelectedIndex="1" SelectionChanged="WidthChanged" ToolTip="Stroke thickness" AutomationProperties.Name="Pen Thickness"><ComboBoxItem Content="Fine      1.5" Tag="1.5"/><ComboBoxItem Content="Medium  2.5" Tag="2.5"/><ComboBoxItem Content="Bold      5.0" Tag="5"/><ComboBoxItem Content="Wide     9.0" Tag="9"/></ComboBox>
+          <ComboBox x:Name="WidthPicker" SelectedIndex="1" SelectionChanged="WidthChanged" ToolTip="Stroke thickness in mm; applies to selected ink in Lasso mode" AutomationProperties.Name="Pen Thickness"><ComboBoxItem Content="Fine       0.35 mm" Tag="1.32283465"/><ComboBoxItem Content="Medium   0.45 mm" Tag="1.70078740"/><ComboBoxItem Content="Bold       0.70 mm" Tag="2.64566929"/><ComboBoxItem Content="Marker    3.00 mm" Tag="11.3385827"/></ComboBox>
+          <Button Content="Save Current as Preset…" Click="SavePresetClick" Margin="0,8,0,0" HorizontalAlignment="Stretch" Background="#F5F7FB"/>
           <Border Height="1" Background="#EBEEF3" Margin="0,18,0,8"/>
           <CheckBox x:Name="HoldToStraightenToggle" Content="Draw and Hold" IsChecked="True" Checked="HoldToStraightenChanged" Unchecked="HoldToStraightenChanged" MinHeight="44" VerticalContentAlignment="Center" FontSize="14" AutomationProperties.Name="Draw and Hold"/>
           <TextBlock Text="Pause at the end of a line to straighten it. Keep holding to adjust; lift to finish." TextWrapping="Wrap" FontSize="12" Foreground="#8791A1" Margin="0,2,0,0"/>
@@ -175,7 +186,10 @@
           <Button x:Name="StrokeEraseOption" Click="EraserOptionClick" Tag="StrokeEraser" MinHeight="78" Padding="12,10" Margin="0" AutomationProperties.Name="Stroke Eraser" ToolTip="Delete the entire stroke when any part of it is touched.">
             <StackPanel Width="260"><TextBlock Text="Stroke Eraser" FontWeight="SemiBold"/><TextBlock Text="Touch any part of a stroke to remove the whole stroke." TextWrapping="Wrap" FontSize="12" Foreground="#68758A" Margin="0,5,0,0"/></StackPanel>
           </Button>
-          <TextBlock Text="Press E to use your last eraser mode." TextWrapping="Wrap" FontSize="11" Foreground="#8791A1" Margin="0,14,0,0"/>
+          <TextBlock Text="Eraser size" Foreground="#8791A1" FontSize="12" Margin="0,12,0,0"/>
+          <Slider x:Name="EraserSizeSlider" Minimum="12" Maximum="120" Value="20" TickFrequency="4" IsSnapToTickEnabled="True" ValueChanged="EraserSettingsChanged" MinHeight="44" VerticalContentAlignment="Center" AutomationProperties.Name="Eraser Size"/>
+          <CheckBox x:Name="HighlightOnlyToggle" Content="Erase highlighter only" Checked="EraserSettingsChanged" Unchecked="EraserSettingsChanged" MinHeight="44" VerticalContentAlignment="Center"/>
+          <TextBlock Text="Press E to use your last eraser mode. Settings are remembered on this device." TextWrapping="Wrap" FontSize="11" Foreground="#8791A1" Margin="0,8,0,0"/>
         </StackPanel>
       </Border>
     </Popup>

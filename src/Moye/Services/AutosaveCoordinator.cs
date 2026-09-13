@@ -9,23 +9,25 @@ public sealed class AutosaveCoordinator : IDisposable
     private readonly INotebookRepository _repository;
     private readonly SynchronizationContext? _context;
     private readonly TimeSpan _delay;
+    private readonly TimeProvider _timeProvider;
     private readonly object _sync = new();
     private readonly Dictionary<string, Pending> _pending = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _saveGate = new(1, 1);
-    private readonly Timer _timer;
+    private readonly ITimer _timer;
     private long _revision;
-    private DateTimeOffset? _firstPending;
+    private long? _firstPendingTimestamp;
     private bool _disposed;
     private bool _isSaving;
     private Exception? _lastError;
 
-    public AutosaveCoordinator(INotebookRepository repository, TimeSpan? delay = null)
+    public AutosaveCoordinator(INotebookRepository repository, TimeSpan? delay = null, TimeProvider? timeProvider = null)
     {
         _repository = repository;
         _context = SynchronizationContext.Current;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _delay = delay ?? TimeSpan.FromMilliseconds(750);
         if (_delay <= TimeSpan.Zero || _delay > TimeSpan.FromSeconds(2)) throw new ArgumentOutOfRangeException(nameof(delay));
-        _timer = new Timer(_ => _ = SaveFromTimerAsync(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _timer = _timeProvider.CreateTimer(_ => _ = SaveFromTimerAsync(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public event EventHandler? StateChanged;
@@ -44,8 +46,8 @@ public sealed class AutosaveCoordinator : IDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _pending[document.Id] = new Pending(++_revision, snapshot);
-            _firstPending ??= DateTimeOffset.UtcNow;
-            var remaining = TimeSpan.FromSeconds(2) - (DateTimeOffset.UtcNow - _firstPending.Value);
+            _firstPendingTimestamp ??= _timeProvider.GetTimestamp();
+            var remaining = TimeSpan.FromSeconds(2) - _timeProvider.GetElapsedTime(_firstPendingTimestamp.Value);
             var due = remaining < _delay ? remaining : _delay;
             _timer.Change(due > TimeSpan.Zero ? due : TimeSpan.Zero, Timeout.InfiniteTimeSpan);
         }
@@ -89,7 +91,7 @@ public sealed class AutosaveCoordinator : IDisposable
             lock (_sync)
             {
                 _isSaving = false;
-                if (_pending.Count == 0) _firstPending = null;
+                if (_pending.Count == 0) _firstPendingTimestamp = null;
             }
             _saveGate.Release();
             Notify();

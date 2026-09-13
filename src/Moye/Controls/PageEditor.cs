@@ -35,6 +35,8 @@ public sealed class PageEditor : Grid
     private InkTool _tool = InkTool.Pen;
     private Color _color = Color.FromRgb(37, 51, 74);
     private double _width = 3;
+    private bool _pressureSensitivity = true, _smoothing = true, _exactWidth, _eraseHighlightOnly;
+    private double _opacity = 1, _eraserSize = 20;
 
     public NotePage Page { get; private set; }
     public PenInkCanvas InkCanvas => _ink;
@@ -66,6 +68,7 @@ public sealed class PageEditor : Grid
         };
         _ink.StrokeCollected += (_, _) => { MarkInkDirty(); FlushChanges(); };
         _ink.StrokeErased += (_, _) => MarkInkDirty();
+        _ink.StrokeErasing += (_, e) => { if (_eraseHighlightOnly && !e.Stroke.DrawingAttributes.IsHighlighter) e.Cancel = true; };
         _ink.SelectionMoved += (_, _) => { MarkInkDirty(); FlushChanges(); };
         _ink.SelectionResized += (_, _) => { MarkInkDirty(); FlushChanges(); };
         _ink.InputCompleted += (_, _) => FlushChanges();
@@ -141,15 +144,15 @@ public sealed class PageEditor : Grid
     {
         _ink.DefaultDrawingAttributes = new DrawingAttributes
         {
-            Color = _color,
-            Width = _tool == InkTool.Highlighter ? Math.Max(12, _width * 4) : _width,
-            Height = _tool == InkTool.Highlighter ? Math.Max(12, _width * 4) : _width,
+            Color = Color.FromArgb((byte)Math.Round(_color.A * (_tool == InkTool.Highlighter ? 1 : _opacity)), _color.R, _color.G, _color.B),
+            Width = _tool == InkTool.Highlighter && !_exactWidth ? Math.Max(12, _width * 4) : _width,
+            Height = _tool == InkTool.Highlighter && !_exactWidth ? Math.Max(12, _width * 4) : _width,
             IsHighlighter = _tool == InkTool.Highlighter,
-            IgnorePressure = _tool == InkTool.Highlighter,
-            FitToCurve = true,
+            IgnorePressure = !_pressureSensitivity || (_tool == InkTool.Highlighter && !_exactWidth),
+            FitToCurve = _smoothing,
             StylusTip = _tool == InkTool.Highlighter ? StylusTip.Rectangle : StylusTip.Ellipse
         };
-        _ink.EraserShape = new EllipseStylusShape(Math.Max(12, _width * 4), Math.Max(12, _width * 4));
+        _ink.EraserShape = new EllipseStylusShape(_eraserSize, _eraserSize);
         // InkCanvas.Select changes EditingMode even when clearing a selection.
         // Clear first, then apply the requested tool so erasers stay erasers.
         if (_tool != InkTool.Lasso && _ink.GetSelectedStrokes().Count > 0) _ink.Select(new StrokeCollection());
@@ -308,6 +311,61 @@ public sealed class PageEditor : Grid
         _tool = InkTool.Lasso;
         ApplyTool();
         _ink.Select(_ink.Strokes);
+    }
+
+    public void ConfigureWriting(WritingPreset preset, double eraserSize, bool eraseHighlightOnly)
+    {
+        CommitPendingEdits();
+        _pressureSensitivity = preset.PressureSensitivity;
+        _smoothing = preset.Smoothing;
+        _opacity = Math.Clamp(preset.Opacity, .1, 1);
+        _exactWidth = true;
+        _eraserSize = Math.Clamp(eraserSize, 12, 120);
+        _eraseHighlightOnly = eraseHighlightOnly;
+        ApplyTool();
+    }
+
+    /// <summary>Editable ISF clipboard payload; the source remains untouched.</summary>
+    public byte[]? ExportSelectedInk()
+    {
+        CommitPendingEdits();
+        var selected = _ink.GetSelectedStrokes();
+        if (selected.Count == 0) return null;
+        using var stream = new MemoryStream();
+        selected.Save(stream);
+        return stream.ToArray();
+    }
+
+    public bool ImportInk(byte[] bytes)
+    {
+        if (bytes.Length == 0) return false;
+        // Parse completely before touching the document or changing history.
+        var strokes = new StrokeCollection(new MemoryStream(bytes, false));
+        if (strokes.Count == 0) return false;
+        var bounds = strokes.GetBounds();
+        if (bounds.IsEmpty || !double.IsFinite(bounds.Width) || !double.IsFinite(bounds.Height))
+            throw new InvalidDataException("The clipboard ink has invalid bounds.");
+        var scale = Math.Min(1, Math.Min(Math.Max(1, Page.Width - 32) / Math.Max(1, bounds.Width), Math.Max(1, Page.Height - 32) / Math.Max(1, bounds.Height)));
+        if (scale < 1) { strokes.Transform(new Matrix(scale, 0, 0, scale, 0, 0), true); bounds = strokes.GetBounds(); }
+        var x = Math.Min(72, Math.Max(0, Page.Width - bounds.Width - 16));
+        var y = Math.Min(72, Math.Max(0, Page.Height - bounds.Height - 16));
+        strokes.Transform(new Matrix(1, 0, 0, 1, x - bounds.Left, y - bounds.Top), false);
+        CommitPendingEdits();
+        _tool = InkTool.Lasso; ApplyTool();
+        _ink.Strokes.Add(strokes); _ink.Select(strokes);
+        MarkInkDirty(); FlushChanges();
+        return true;
+    }
+
+    public void ApplyWidthToSelection(double width)
+    {
+        if (!double.IsFinite(width)) return;
+        foreach (var stroke in _ink.GetSelectedStrokes())
+        {
+            stroke.DrawingAttributes.Width = Math.Clamp(width, .5, 24);
+            stroke.DrawingAttributes.Height = Math.Clamp(width, .5, 24);
+        }
+        FlushChanges();
     }
 
     public void ApplyColorToSelection(Color color)
@@ -524,13 +582,14 @@ public sealed class PageEditor : Grid
         var selected = _selectedItem;
         var strokes = _ink.GetSelectedStrokes();
         SelectItem(null);
-        _ink.Select(new StrokeCollection());
+        if (strokes.Count > 0) _ink.Select(new StrokeCollection());
         try
         {
             return _lastThumbnail = RenderThumbnail(width);
         }
         finally
         {
+            ApplyTool();
             SelectItem(selected);
             if (_tool == InkTool.Lasso) _ink.Select(strokes);
         }

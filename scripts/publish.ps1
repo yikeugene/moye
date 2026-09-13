@@ -48,6 +48,7 @@ try {
         if (-not (Test-Path -LiteralPath (Join-Path $MoyeStaging $MoyeRequired) -PathType Leaf)) { throw "The self-contained package is missing $MoyeRequired." }
     }
     Copy-Item -LiteralPath (Join-Path $MoyeEnvironment.Root 'README.md') -Destination $MoyeStaging
+    Copy-Item -LiteralPath (Join-Path $MoyeEnvironment.Root 'ROADMAP.md') -Destination $MoyeStaging
     Copy-Item -LiteralPath (Join-Path $MoyeEnvironment.Root 'LICENSE') -Destination $MoyeStaging
     # Copy only public user documentation. Internal reports and unrelated files
     # in docs must never be swept into a release by a recursive directory copy.

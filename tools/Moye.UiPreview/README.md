@@ -20,7 +20,9 @@ Output files in `artifacts/`:
 - `ui-preview-library-{1400,1024}.png`: notebook selection home.
 - `ui-preview-library-empty-{1400,1024}.png`: empty library with a create action.
 - `ui-preview-library-search-{1400,1024}.png`: search with no matching notebook.
-- `ui-preview-paper-templates.png`: the three visual paper choices, 454 × 260 DIP.
+- `ui-preview-paper-templates.png`: the six visual paper choices, 454 × 374 DIP.
+- `ui-preview-focus-{1400,1024}.png`: focus chrome with the paper viewport reclaiming the header, tools and footer space.
+- `ui-preview-presets.png`: the actual preset manager content, 744 × 620 DIP. A round-trip check preserves a minimum-width pen and 65% opacity.
 - `ui-preview-new-notebook.png`: actual dialog content at 544 DIP wide, measured to its desired height within the desktop work area.
 - `ui-preview-eraser-settings.png`: the actual Eraser Settings popup content at 330 DIP wide, with Pixel Eraser and Stroke Eraser explanations.
 - `ui-preview-pen-settings.png`: the actual Pen Settings popup content at 310 DIP wide, including the Draw and Hold checkbox.
@@ -28,7 +30,7 @@ Output files in `artifacts/`:
 
 These images support internal layout review; they do not validate live UI interaction. Touch, pen input, Windows scaling, the system title bar, popup menus, and keyboard focus require separate verification. Images are rendered at 96 DPI, and their dimensions describe the content area without operating-system window borders. Button checks use declared `Visibility` and ancestor visibility because `IsVisible` does not describe layout in an offscreen tree without a presentation source.
 
-Each scene must contain its expected controls: the home requires New Notebook; the editor requires Pen, Pen Settings, and Fit Width; the paper picker requires three radio choices with exactly one selected; the eraser popup requires both eraser mode buttons; the pen popup requires Draw and Hold. Touch-target checks include the template radio cards, checkboxes and regular buttons, excluding native scrollbar parts. The process exits unsuccessfully when required controls are missing or button bounds are too small, overlapping, or outside the rendered area.
+Each scene must contain its expected controls: the home requires New Notebook; the editor requires Pen, Pen Settings, and Fit Width; focus requires Exit Focus; the paper picker requires six radio choices with exactly one selected; the eraser popup requires both eraser mode buttons; the pen popup requires Draw and Hold. Touch-target checks include the template radio cards, checkboxes and regular buttons, excluding native scrollbar parts. The process exits unsuccessfully when required controls are missing or button bounds are too small, overlapping, or outside the rendered area.
 
 Settings previews detach the real `Popup.Child` while `IsOpen` remains false, inherit the main-window typography, and use the content's natural height. They render content without creating a native popup or invoking click/keyboard handlers. The Pixel Eraser highlight represents the application's initial remembered mode because the main window's Loaded handler is intentionally not dispatched.
 

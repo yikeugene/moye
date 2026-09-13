@@ -28,11 +28,14 @@ public sealed class PaperTemplatePicker : UserControl
     public PaperTemplatePicker()
     {
         MinWidth = 240;
-        var group = new UniformGrid { Columns = 3 };
+        var group = new UniformGrid { Columns = 3, Rows = 2 };
         var groupName = $"PaperTemplates_{Guid.NewGuid():N}";
         AddChoice(group, groupName, PaperTemplate.Plain, "Blank", "Free-form notes");
         AddChoice(group, groupName, PaperTemplate.Ruled, "Ruled", "Everyday writing");
         AddChoice(group, groupName, PaperTemplate.Grid, "Grid", "Diagrams & maths");
+        AddChoice(group, groupName, PaperTemplate.DotGrid, "Dot Grid", "Flexible layouts");
+        AddChoice(group, groupName, PaperTemplate.Cornell, "Cornell", "Cues & summaries");
+        AddChoice(group, groupName, PaperTemplate.Graph, "Graph", "Fine-scale plotting");
         Content = group;
         UpdateSelection();
     }
@@ -42,9 +45,9 @@ public sealed class PaperTemplatePicker : UserControl
         var content = new StackPanel();
         var paper = new Border
         {
-            Width = 62, Height = 88,
+            Width = 40, Height = 56,
             BorderBrush = Brush("#D7DFEA"), BorderThickness = new Thickness(1),
-            Background = Brushes.White, Margin = new Thickness(0, 0, 0, 10),
+            Background = Brushes.White, Margin = new Thickness(0, 0, 0, 6),
             Child = new Viewbox
             {
                 Stretch = Stretch.Uniform,
@@ -66,8 +69,8 @@ public sealed class PaperTemplatePicker : UserControl
 
         var choice = new RadioButton
         {
-            GroupName = groupName, Content = content, MinHeight = 172,
-            Margin = new Thickness(3), Padding = new Thickness(6, 12, 6, 8),
+            GroupName = groupName, Content = content, MinHeight = 138,
+            Margin = new Thickness(3), Padding = new Thickness(6, 7, 6, 7),
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Center,
             Cursor = System.Windows.Input.Cursors.Hand,
