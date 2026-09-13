@@ -1,6 +1,6 @@
 # Moye user guide
 
-This guide describes the English interface in Moye 1.3 for Windows 11 x64.
+This guide describes the English interface in Moye 1.4 for Windows 11 x64.
 
 ## Notebooks and pages
 
@@ -20,7 +20,14 @@ Select **Pen** or **Highlighter**, then open **Pen Settings** to choose a color 
 
 Finger input is reserved for navigation: one finger scrolls and two fingers zoom. Page gestures pause while the pen is down. Pen response and palm rejection depend on your laptop, pen, and drivers, and still need validation on the device you use.
 
-The **Eraser** initially uses partial erasing. Choose partial or whole-stroke erasing in **Pen Settings**; the eraser button and `E` shortcut then reuse that mode.
+With **Pen** or **Highlighter**, draw a line and keep the tip down near its endpoint for about **0.65 seconds**. It straightens while you are still holding. Continue dragging to adjust its length and angle, then lift to finish. The same gesture works by holding the left mouse button. Pressure and ink appearance are retained, and the result saves as one editable stroke. Short marks, circles, and strongly curved handwriting stay freehand. **Pen Settings → Draw and Hold** is enabled by default; turn it off for uninterrupted freehand drawing. This switch applies to both Pen and Highlighter for the current app session.
+
+Click the eraser icon to open **Eraser Settings**:
+
+- **Pixel Eraser** removes only the touched portion of ink, leaving the surviving fragments editable. It does not erase the paper, PDF background, text boxes, or images.
+- **Stroke Eraser** removes the entire ink stroke when you touch any part of it.
+
+The toolbar label shows **Pixel** or **Stroke**. Click the eraser again to close its picker, or select a mode and continue writing. Press `E` to recall the last eraser mode in this app session. Pen Settings' thickness control also changes the eraser's area. The remembered mode is also applied to the pen's inverted eraser when the device sends inverted-pen events. Erasing remains undoable.
 
 Use **Lasso** to circle ink. Drag the selection to move it, or drag its boundary handles to resize it. Press `Ctrl+D` to duplicate or `Delete` to remove the selection. With ink selected, you can also change its color through **Pen Settings**.
 
@@ -52,7 +59,7 @@ Encrypted documents, interactive forms, digital signatures, and internal or cros
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Version 1.3 uses the existing library and backup formats.
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Version 1.4 uses the existing library and backup formats.
 
 Use the **More** menu to move or preserve your notes:
 
@@ -90,5 +97,6 @@ Physical pen and touch validation, and real IME composition, remain outstanding.
 4. Moving the pen beyond the page, lifting it, switching windows, and resuming from sleep without a stuck input state.
 5. The specific pen's tail eraser and side buttons, which depend on driver events.
 6. IME composition, candidate selection, line breaks, editing existing text, and retaining content across page changes. Direct Unicode entry is not the same as testing IME composition.
+7. Draw-and-hold preview before lifting, endpoint adjustment, freehand release, pressure variation, and pen-up/capture-loss cleanup at different zoom levels. The default hold timing and jitter tolerance may need tuning for your digitizer.
 
 See the README's [verification and limitations](../README.md#verification-and-limitations) summary for the scope of automated checks and outstanding device validation.

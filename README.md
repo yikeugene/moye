@@ -2,11 +2,11 @@
 
 An offline handwriting notebook for Windows 11. Moye combines pressure-sensitive ink, PDF annotation, text boxes, and images in a native WPF app designed for a touchscreen laptop and an active pen.
 
-[Download Windows x64](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.3.1-win-x64.zip) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
+[Download Windows x64](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.4.0-win-x64.zip) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
 
 ## Get started
 
-1. Download `Moye-1.3.1-win-x64.zip` from [Releases](https://github.com/yikeugene/moye/releases).
+1. Download `Moye-1.4.0-win-x64.zip` from [Releases](https://github.com/yikeugene/moye/releases).
 2. Extract the **entire** ZIP, then open `Moye.exe`. The portable package includes the .NET runtime; no separate .NET installation is needed.
 3. On **Your Notebooks**, open a notebook cover or choose **New Notebook** and select Blank, Ruled or Grid paper. Select **Pen** and start writing. Use **Pen Settings** to change the color and width. A mouse works too.
 
@@ -15,20 +15,20 @@ Moye requires Windows 11 x64. An active pen compatible with Windows Ink is neede
 ## Features
 
 - Notebooks with titles and categories; search by either. Add, duplicate, reorder, and delete pages.
-- Pressure-sensitive pen, highlighter, partial and whole-stroke erasers, and lasso selection. Move, resize, recolor, duplicate, or delete selected ink.
+- Pressure-sensitive pen and highlighter with draw-and-hold straight lines, Pixel and Stroke erasers, and lasso selection. Move, resize, recolor, duplicate, or delete selected ink.
 - Up to 100 undo and redo steps per notebook editing session.
 - A4 blank, ruled, and grid paper; continuous pages, thumbnails, fit-page and fit-width views, and a focus mode.
 - Editable text boxes, PNG/JPEG images, and pasted screenshots, with move and resize handles.
 - PDF import and annotation, PDF export for sharing, and `.moye` backups that preserve editable content.
 - Background autosave to a local SQLite database, with unsaved snapshots retained if a write fails.
 
-The English interface puts the document title at the top, with **Pages** and **Notebooks** tabs in the sidebar. **All Notes** saves and returns to the notebook home screen; opening another notebook returns to its page thumbnails. **Insert** contains page, PDF, and image commands. **Page Options** contains page management and paper styles. Choose paper from visual template cards when adding notebooks or pages. **Fit Width**, beside **Fit Page** in the footer, fits paper to the writing area and responds to window/sidebar resizing. Click the zoom percentage for 100% view. The pen and highlighter keep separate colors while switching tools, and the eraser remembers its selected mode.
+The English interface puts the document title at the top, with **Pages** and **Notebooks** tabs in the sidebar. **All Notes** saves and returns to the notebook home screen; opening another notebook returns to its page thumbnails. **Insert** contains page, PDF, and image commands. **Page Options** contains page management and paper styles. Choose paper from visual template cards when adding notebooks or pages. **Fit Width**, beside **Fit Page** in the footer, fits paper to the writing area and responds to window/sidebar resizing. Click the zoom percentage for 100% view. With Pen or Highlighter, pause at a line endpoint for about 0.65 seconds to straighten it, drag to adjust, then lift. **Pen Settings → Draw and Hold** toggles this behavior. Click the eraser icon to choose **Pixel Eraser** or **Stroke Eraser**; its toolbar label shows the remembered mode.
 
 ## Your notes stay local
 
 Notes are stored in `%LOCALAPPDATA%\Moye\moye.db`, with SQLite journal files alongside it. Moving the app folder does not move your notebooks. Use **More → Back Up All Notebooks** to create a portable `.moye` backup. Restoring creates new copies and does not overwrite existing notebooks.
 
-Backups include editable ink, pressure, text, images, page order, and original PDFs. They are not encrypted. Moye does not include cloud sync, recording, handwriting recognition, AI features, or an infinite canvas. Version 1.3 keeps the existing database and backup formats.
+Backups include editable ink, pressure, text, images, page order, and original PDFs. They are not encrypted. Moye does not include cloud sync, recording, handwriting recognition, AI features, or an infinite canvas. Version 1.4 keeps the existing database and backup formats.
 
 ## Build from source
 

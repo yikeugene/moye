@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly HashSet<PageEditor> _dirtyThumbnails = [];
     private InkTool _tool = InkTool.Pen;
     private InkTool _eraserTool = InkTool.PointEraser;
+    private bool _eraserPopupDismissedOnButton;
     private Color _color = (Color)ColorConverter.ConvertFromString("#25334A");
     private Color _penColor = (Color)ColorConverter.ConvertFromString("#25334A");
     private Color _highlighterColor = (Color)ColorConverter.ConvertFromString("#F4CF58");
@@ -74,7 +75,7 @@ public partial class MainWindow : Window
     private async Task RunAsync(string message, Func<Task> action)
     {
         if (ViewModel.IsBusy) return;
-        PenSettingsPopup.IsOpen = false; PaperSettingsPopup.IsOpen = false;
+        CloseSettingsPopups();
         ViewModel.Operation = message; ViewModel.IsBusy = true;
         try { await action(); }
         catch (OperationCanceledException) { ViewModel.Status = "Operation canceled"; }
@@ -191,6 +192,8 @@ public partial class MainWindow : Window
         if (host.DataContext is not PageViewModel item || _editors.ContainsKey(host)) return;
         var cts = new CancellationTokenSource(); _loading[host] = cts;
         var editor = new PageEditor(item.Page, id => ViewModel.Repository.GetAssetAsync(id));
+        editor.InkCanvas.HoldToStraightenEnabled = HoldToStraightenToggle.IsChecked == true;
+        editor.InkCanvas.EditingModeInverted = _eraserTool == InkTool.StrokeEraser ? InkCanvasEditingMode.EraseByStroke : InkCanvasEditingMode.EraseByPoint;
         editor.LayoutTransform = new ScaleTransform(ViewModel.Zoom, ViewModel.Zoom);
         editor.HorizontalAlignment = HorizontalAlignment.Left; editor.VerticalAlignment = VerticalAlignment.Top;
         editor.SetTool(_tool, _color, EffectiveWidth());
@@ -290,16 +293,49 @@ public partial class MainWindow : Window
         var tool = Enum.Parse<InkTool>((string)((Button)sender).Tag);
         SetTool(tool == InkTool.PointEraser ? _eraserTool : tool);
     }
+    private void EraserToolClick(object sender, RoutedEventArgs e)
+    {
+        bool close = (_tool is InkTool.PointEraser or InkTool.StrokeEraser) &&
+                     (EraserSettingsPopup.IsOpen || _eraserPopupDismissedOnButton);
+        SetTool(_eraserTool);
+        _eraserPopupDismissedOnButton = false;
+        EraserSettingsPopup.IsOpen = !close;
+    }
+    private void EraserPopupClosed(object? sender, EventArgs e)
+    {
+        // StaysOpen=False dismisses a popup before its trigger receives Click.
+        // Remember that dismissal for this press so re-clicking closes it.
+        var stylus = Stylus.CurrentStylusDevice;
+        var pointer = stylus is { InAir: false } ? stylus.GetPosition(EraserButton) : Mouse.GetPosition(EraserButton);
+        _eraserPopupDismissedOnButton = (Mouse.LeftButton == MouseButtonState.Pressed || stylus is { InAir: false }) &&
+            new Rect(EraserButton.RenderSize).Contains(pointer);
+    }
+    private void EraserPopupKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            SetTool(_eraserTool); PageList.Focus(); e.Handled = true; return;
+        }
+        if (e.Key != Key.Escape) return;
+        CloseSettingsPopups(); PageList.Focus(); e.Handled = true;
+    }
+    private void CloseSettingsPopups()
+    {
+        PenSettingsPopup.IsOpen = false;
+        PaperSettingsPopup.IsOpen = false;
+        EraserSettingsPopup.IsOpen = false;
+        _eraserPopupDismissedOnButton = false;
+    }
     private void EraserMenuClick(object sender, RoutedEventArgs e) => SetTool(Enum.Parse<InkTool>((string)((MenuItem)sender).Tag));
     private void EraserOptionClick(object sender, RoutedEventArgs e)
     {
         SetTool(Enum.Parse<InkTool>((string)((Button)sender).Tag));
-        PenSettingsPopup.IsOpen = false;
     }
     private void PenSettingsClick(object sender, RoutedEventArgs e)
     {
-        CommitEditors(); PaperSettingsPopup.IsOpen = false;
-        PenSettingsPopup.IsOpen = !PenSettingsPopup.IsOpen; UpdateTool();
+        bool open = !PenSettingsPopup.IsOpen;
+        CommitEditors(); CloseSettingsPopups();
+        PenSettingsPopup.IsOpen = open; UpdateTool();
     }
     private void PageSettingsClick(object sender, RoutedEventArgs e)
     {
@@ -307,7 +343,7 @@ public partial class MainWindow : Window
     }
     private void SetTool(InkTool tool)
     {
-        CommitEditors();
+        CommitEditors(); CloseSettingsPopups();
         if (_tool == InkTool.Pen) _penColor = _color;
         if (_tool == InkTool.Highlighter) _highlighterColor = _color;
         _tool = tool;
@@ -317,6 +353,12 @@ public partial class MainWindow : Window
         UpdateTool();
     }
     private double EffectiveWidth() => _width;
+    private void HoldToStraightenChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        CommitEditors();
+        foreach (var editor in _editors.Values) editor.InkCanvas.HoldToStraightenEnabled = HoldToStraightenToggle.IsChecked == true;
+    }
     private void UpdateTool()
     {
         if (PenButton is null) return;
@@ -337,10 +379,23 @@ public partial class MainWindow : Window
         }
         CurrentColor.Fill = new SolidColorBrush(_color);
         CurrentWidth.Text = _width.ToString("0.#", CultureInfo.InvariantCulture);
-        PointEraseOption.Background = _eraserTool == InkTool.PointEraser ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent;
-        StrokeEraseOption.Background = _eraserTool == InkTool.StrokeEraser ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent;
-        foreach (var editor in _editors.Values) editor.SetTool(_tool, _color, EffectiveWidth());
-        ToolStatus.Text = (_tool switch { InkTool.Pen => "Pen", InkTool.Highlighter => "Highlighter", InkTool.PointEraser => "Partial Eraser", InkTool.StrokeEraser => "Whole Stroke Eraser", InkTool.Lasso => "Lasso · Draw to select / Ctrl+D to duplicate", InkTool.Text => "Text · Tap the page to type", InkTool.Select => "Select · Drag to move / resize from the corner", _ => "Browse" }) + "  ·  One finger to pan · Pinch to zoom";
+        foreach (var option in new[] { PointEraseOption, StrokeEraseOption })
+        {
+            bool selected = Enum.Parse<InkTool>((string)option.Tag) == _eraserTool;
+            option.Background = selected ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent;
+            option.Foreground = selected ? (Brush)FindResource("Accent") : (Brush)FindResource("Ink");
+            option.BorderBrush = selected ? (Brush)FindResource("Accent") : new SolidColorBrush(Color.FromRgb(223, 228, 236));
+            option.BorderThickness = new Thickness(1);
+        }
+        EraserModeLabel.Text = _eraserTool == InkTool.PointEraser ? "Pixel" : "Stroke";
+        EraserButton.ToolTip = $"{EraserModeLabel.Text} Eraser (E); click to choose an eraser mode";
+        System.Windows.Automation.AutomationProperties.SetHelpText(EraserButton, $"Current mode: {EraserModeLabel.Text} Eraser. Click to choose Pixel Eraser or Stroke Eraser.");
+        foreach (var editor in _editors.Values)
+        {
+            editor.SetTool(_tool, _color, EffectiveWidth());
+            editor.InkCanvas.EditingModeInverted = _eraserTool == InkTool.StrokeEraser ? InkCanvasEditingMode.EraseByStroke : InkCanvasEditingMode.EraseByPoint;
+        }
+        ToolStatus.Text = (_tool switch { InkTool.Pen => "Pen", InkTool.Highlighter => "Highlighter", InkTool.PointEraser => "Pixel Eraser · Keep the rest of the stroke", InkTool.StrokeEraser => "Stroke Eraser · Remove the whole stroke", InkTool.Lasso => "Lasso · Draw to select / Ctrl+D to duplicate", InkTool.Text => "Text · Tap the page to type", InkTool.Select => "Select · Drag to move / resize from the corner", _ => "Browse" }) + "  ·  One finger to pan · Pinch to zoom";
     }
     private void ColorClick(object sender, RoutedEventArgs e)
     {
@@ -350,7 +405,7 @@ public partial class MainWindow : Window
     }
     private void CustomColorClick(object sender, RoutedEventArgs e)
     {
-        PenSettingsPopup.IsOpen = false;
+        CloseSettingsPopups();
         var dialog = new InputDialog(this, "Custom Color", ("Hex color (for example, #326AE8)", $"#{_color.R:X2}{_color.G:X2}{_color.B:X2}"));
         if (dialog.ShowDialog() != true) return;
         try { _color = (Color)ColorConverter.ConvertFromString(dialog.Values[0]); if (_tool is InkTool.Lasso or InkTool.Text or InkTool.Select) CurrentEditor?.ApplyColorToSelection(_color); UpdateTool(); }
@@ -377,7 +432,7 @@ public partial class MainWindow : Window
     private void ShowPaperPicker(bool addingPage)
     {
         if (ViewModel.Document is null) return;
-        CommitEditors(); PenSettingsPopup.IsOpen = false; _addingPage = addingPage;
+        CommitEditors(); CloseSettingsPopups(); _addingPage = addingPage;
         TemplatePicker.SelectedTemplate = ViewModel.SelectedPage?.Page.Pdf is null ? ViewModel.SelectedPage?.Page.Template ?? PaperTemplate.Ruled : PaperTemplate.Ruled;
         TemplatePicker.IsEnabled = addingPage || ViewModel.SelectedPage?.Page.Pdf is null;
         ApplyPaperButton.IsEnabled = TemplatePicker.IsEnabled;
@@ -387,12 +442,12 @@ public partial class MainWindow : Window
         PaperSettingsPopup.PlacementTarget = Sidebar.Visibility == Visibility.Visible ? PageOptionsButton : PenSettingsButton;
         Dispatcher.BeginInvoke(() => PaperSettingsPopup.IsOpen = true, DispatcherPriority.Input);
     }
-    private void CancelPaperClick(object sender, RoutedEventArgs e) => PaperSettingsPopup.IsOpen = false;
+    private void CancelPaperClick(object sender, RoutedEventArgs e) => CloseSettingsPopups();
     private void ApplyPaperClick(object sender, RoutedEventArgs e)
     {
         if (!TemplatePicker.IsEnabled) return;
         var template = TemplatePicker.SelectedTemplate;
-        PaperSettingsPopup.IsOpen = false;
+        CloseSettingsPopups();
         CommitEditors();
         if (_addingPage) { ViewModel.AddPage(template); ScrollToSelected(); }
         else ViewModel.SetTemplate(template);
@@ -474,7 +529,7 @@ public partial class MainWindow : Window
     private async void RetrySaveClick(object sender, RoutedEventArgs e) => await RunAsync("Retrying save…", () => ViewModel.Autosave.RetryAsync());
     private void MoreClick(object sender, RoutedEventArgs e) { var button = (Button)sender; button.ContextMenu.PlacementTarget = button; button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true; }
     private void HelpClick(object sender, RoutedEventArgs e) => MessageBox.Show(this,
-        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\n\nAll Notes saves and returns to your notebook home. Click the title to rename.\nUse Insert (+) for pages, PDFs and images.\nPen Settings controls color, thickness and eraser mode.\nChoose a paper preview when creating notebooks or pages.\nPage Options changes existing page backgrounds.\nFit Width sits beside Fit Page and fills the writing area.\nClick the zoom percentage for Actual Size.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Text · V Select\nCtrl+Z Undo · Ctrl+Y Redo · Ctrl+D Duplicate selection\nCtrl+V Paste image · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\n\nIn Select mode, drag the top-right handle to move an object,\nand the bottom-right handle to resize it. In Text mode, tap\nthe page to add text or click existing text to edit it.\n\nNotes save automatically on this device. Use More to create\n.moye backups that keep all content editable. Use Share to\nexport a PDF with flattened annotations.\n\nMoye 1.3 · Offline Windows notebooks", "Moye User Guide");
+        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\n\nAll Notes saves and returns to your notebook home. Click the title to rename.\nUse Insert (+) for pages, PDFs and images.\nPen Settings controls color, thickness and Draw and Hold.\nDraw a line, hold about 0.65 seconds, then lift to finish.\nWhile held, drag the endpoint to adjust length and angle.\nClick the eraser to choose Pixel Eraser or Stroke Eraser.\nChoose a paper preview when creating notebooks or pages.\nPage Options changes existing page backgrounds.\nFit Width sits beside Fit Page and fills the writing area.\nClick the zoom percentage for Actual Size.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Text · V Select\nCtrl+Z Undo · Ctrl+Y Redo · Ctrl+D Duplicate selection\nCtrl+V Paste image · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\n\nIn Select mode, drag the top-right handle to move an object,\nand the bottom-right handle to resize it. In Text mode, tap\nthe page to add text or click existing text to edit it.\n\nNotes save automatically on this device. Use More to create\n.moye backups that keep all content editable. Use Share to\nexport a PDF with flattened annotations.\n\nMoye 1.4 · Offline Windows notebooks", "Moye User Guide");
 
     private void SidebarTabClick(object sender, RoutedEventArgs e) => ShowSidebarTab((string)((Button)sender).Tag == "Notebooks");
     private async void ShowNotebooksClick(object sender, RoutedEventArgs e)
@@ -498,14 +553,14 @@ public partial class MainWindow : Window
         NotebooksTab.Background = notebooks ? Brushes.White : Brushes.Transparent;
         PagesTab.Foreground = notebooks ? Brushes.SlateGray : (Brush)FindResource("Accent");
         NotebooksTab.Foreground = notebooks ? (Brush)FindResource("Accent") : Brushes.SlateGray;
-        PaperSettingsPopup.IsOpen = false;
+        CloseSettingsPopups();
     }
     private void ToggleSidebarClick(object sender, RoutedEventArgs e) => ToggleSidebar();
-    private void ToggleSidebar() { bool show = Sidebar.Visibility != Visibility.Visible; Sidebar.Visibility = show ? Visibility.Visible : Visibility.Collapsed; SidebarColumn.Width = new GridLength(show ? 224 : 0); PaperSettingsPopup.IsOpen = false; }
+    private void ToggleSidebar() { bool show = Sidebar.Visibility != Visibility.Visible; Sidebar.Visibility = show ? Visibility.Visible : Visibility.Collapsed; SidebarColumn.Width = new GridLength(show ? 224 : 0); CloseSettingsPopups(); }
     private void FocusClick(object sender, RoutedEventArgs e) => ToggleFocus();
     private void ToggleFocus()
     {
-        PenSettingsPopup.IsOpen = false; PaperSettingsPopup.IsOpen = false;
+        CloseSettingsPopups();
         _focusMode = !_focusMode;
         if (_focusMode) { _oldWindowState = WindowState; _sidebarBeforeFocus = Sidebar.Visibility == Visibility.Visible; WindowStyle = WindowStyle.None; WindowState = WindowState.Maximized; Sidebar.Visibility = Visibility.Collapsed; SidebarColumn.Width = new GridLength(0); }
         else { WindowStyle = WindowStyle.SingleBorderWindow; WindowState = _oldWindowState; Sidebar.Visibility = _sidebarBeforeFocus ? Visibility.Visible : Visibility.Collapsed; SidebarColumn.Width = new GridLength(_sidebarBeforeFocus ? 224 : 0); }
@@ -732,7 +787,7 @@ public partial class MainWindow : Window
         // Library search keeps its text shortcuts; editor commands cannot act
         // on the notebook retained in memory while the home screen is visible.
         if (ViewModel.IsLibraryVisible) return;
-        if (e.Key == Key.Escape && (PenSettingsPopup.IsOpen || PaperSettingsPopup.IsOpen)) { PenSettingsPopup.IsOpen = false; PaperSettingsPopup.IsOpen = false; e.Handled = true; return; }
+        if (e.Key == Key.Escape && (PenSettingsPopup.IsOpen || PaperSettingsPopup.IsOpen || EraserSettingsPopup.IsOpen)) { CloseSettingsPopups(); e.Handled = true; return; }
         if (e.Key == Key.F9) { ToggleSidebar(); e.Handled = true; return; }
         if (e.Key == Key.F11) { ToggleFocus(); e.Handled = true; return; }
         bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);

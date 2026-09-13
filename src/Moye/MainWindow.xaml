@@ -101,12 +101,12 @@
             <StackPanel x:Name="WritingTools" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <Button x:Name="PenButton" Tag="Pen" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Pressure-sensitive pen (B)" AutomationProperties.Name="Pen"><StackPanel><Path Data="M16,2 L22,8 10,20 3,22 5,15 Z M5,15 L10,20 M14,4 L20,10" Style="{StaticResource ToolIcon}"/><TextBlock Text="Pen" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button  Tag="Highlighter" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Highlighter (H)" AutomationProperties.Name="Highlighter"><StackPanel><Path Data="M12,3 L21,8 14,19 5,14 Z M7,15 L5,19 10,21 12,18 M3,23 L13,23 M10,6 L18,11" Style="{StaticResource ToolIcon}"/><TextBlock Text="Highlighter" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
-<Button  Tag="PointEraser" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Eraser (E); choose a mode in Pen Settings" AutomationProperties.Name="Eraser"><StackPanel><Path Data="M13,3 Q14,2 15,3 L22,10 Q23,11 22,12 L12,22 7,22 2,17 Q1,16 2,15 Z M7,10 L17,17 M12,22 L23,22" Style="{StaticResource ToolIcon}"/><TextBlock Text="Eraser" Style="{StaticResource ToolLabel}"/></StackPanel><Button.ContextMenu><ContextMenu><MenuItem Header="Partial" Click="EraserMenuClick" Tag="PointEraser"/><MenuItem Header="Whole Stroke" Click="EraserMenuClick" Tag="StrokeEraser"/></ContextMenu></Button.ContextMenu></Button>
+<Button x:Name="EraserButton" Tag="PointEraser" Style="{StaticResource ToolButton}" Click="EraserToolClick" ToolTip="Pixel Eraser (E); click to choose an eraser mode" AutomationProperties.Name="Eraser"><StackPanel><Path Data="M13,3 Q14,2 15,3 L22,10 Q23,11 22,12 L12,22 7,22 2,17 Q1,16 2,15 Z M7,10 L17,17 M12,22 L23,22" Style="{StaticResource ToolIcon}"/><TextBlock x:Name="EraserModeLabel" Text="Pixel" Style="{StaticResource ToolLabel}"/></StackPanel><Button.ContextMenu><ContextMenu><MenuItem Header="Pixel Eraser" Click="EraserMenuClick" Tag="PointEraser"/><MenuItem Header="Stroke Eraser" Click="EraserMenuClick" Tag="StrokeEraser"/></ContextMenu></Button.ContextMenu></Button>
 <Button  Tag="Lasso" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Lasso (L); Delete to remove, Ctrl+D to duplicate" AutomationProperties.Name="Lasso"><StackPanel><Path Data="M8,20 C-1,17 0,4 12,3 C24,1 27,16 15,20 C8,23 4,21 6,17 C8,13 12,21 8,25" Style="{StaticResource ToolIcon}"/><TextBlock Text="Lasso" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button  Tag="Text" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Tap the page to add text (T)" AutomationProperties.Name="Text"><StackPanel><Path Data="M3,7 L3,3 23,3 23,7 M13,3 L13,23 M8,23 L18,23" Style="{StaticResource ToolIcon}"/><TextBlock Text="Text" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button  Tag="Select" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Move or resize text and images (V)" AutomationProperties.Name="Select"><StackPanel><Path Data="M4,2 L4,21 9,16 13,24 17,22 13,14 21,13 Z" Style="{StaticResource ToolIcon}"/><TextBlock Text="Select" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
               <Border Width="1" Height="28" Background="#E2E6ED" Margin="12,0"/>
-              <Button x:Name="PenSettingsButton" Click="PenSettingsClick" ToolTip="Pen Settings: color, thickness and eraser mode" AutomationProperties.Name="Pen Settings" Padding="10,6" Background="#F5F7FB">
+              <Button x:Name="PenSettingsButton" Click="PenSettingsClick" ToolTip="Pen Settings: color and thickness" AutomationProperties.Name="Pen Settings" Padding="10,6" Background="#F5F7FB">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Ellipse x:Name="CurrentColor" Width="18" Height="18" Fill="#25334A"/><TextBlock x:Name="CurrentWidth" Text="2.5" Margin="10,0,8,0" FontSize="12" VerticalAlignment="Center"/><TextBlock Text="⌄" Foreground="#9099A8"/></StackPanel>
               </Button>
             </StackPanel>
@@ -158,9 +158,24 @@
           <Button Content="Custom Color…" Click="CustomColorClick" Foreground="#326AE8" HorizontalAlignment="Left" Margin="-8,2,0,10"/>
           <TextBlock Text="Pen Thickness" FontSize="12" Foreground="#8791A1" Margin="0,0,0,8"/>
           <ComboBox x:Name="WidthPicker" SelectedIndex="1" SelectionChanged="WidthChanged" ToolTip="Stroke thickness" AutomationProperties.Name="Pen Thickness"><ComboBoxItem Content="Fine      1.5" Tag="1.5"/><ComboBoxItem Content="Medium  2.5" Tag="2.5"/><ComboBoxItem Content="Bold      5.0" Tag="5"/><ComboBoxItem Content="Wide     9.0" Tag="9"/></ComboBox>
-          <Border Height="1" Background="#EBEEF3" Margin="0,18"/>
-          <TextBlock Text="Eraser Mode" FontSize="12" Foreground="#8791A1" Margin="0,0,0,8"/>
-          <UniformGrid Columns="2"><Button Content="Partial" Click="EraserOptionClick" x:Name="PointEraseOption" Tag="PointEraser"/><Button Content="Whole Stroke" Click="EraserOptionClick" x:Name="StrokeEraseOption" Tag="StrokeEraser"/></UniformGrid>
+          <Border Height="1" Background="#EBEEF3" Margin="0,18,0,8"/>
+          <CheckBox x:Name="HoldToStraightenToggle" Content="Draw and Hold" IsChecked="True" Checked="HoldToStraightenChanged" Unchecked="HoldToStraightenChanged" MinHeight="44" VerticalContentAlignment="Center" FontSize="14" AutomationProperties.Name="Draw and Hold"/>
+          <TextBlock Text="Pause at the end of a line to straighten it. Keep holding to adjust; lift to finish." TextWrapping="Wrap" FontSize="12" Foreground="#8791A1" Margin="0,2,0,0"/>
+        </StackPanel>
+      </Border>
+    </Popup>
+    <Popup x:Name="EraserSettingsPopup" PlacementTarget="{Binding ElementName=EraserButton}" Placement="Bottom" VerticalOffset="10" StaysOpen="False" AllowsTransparency="True" PopupAnimation="None" Closed="EraserPopupClosed" PreviewKeyDown="EraserPopupKeyDown">
+      <Border Background="White" BorderBrush="#DFE4EC" BorderThickness="1" CornerRadius="12" Padding="18" Width="330">
+        <StackPanel>
+          <TextBlock Text="Eraser Settings" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <TextBlock Text="Choose what your eraser removes." FontSize="12" Foreground="#8791A1" Margin="0,0,0,14"/>
+          <Button x:Name="PointEraseOption" Click="EraserOptionClick" Tag="PointEraser" MinHeight="78" Padding="12,10" Margin="0,0,0,8" AutomationProperties.Name="Pixel Eraser" ToolTip="Erase only the touched part and keep the remaining stroke fragments.">
+            <StackPanel Width="260"><TextBlock Text="Pixel Eraser" FontWeight="SemiBold"/><TextBlock Text="Erase the part you touch. The rest of the stroke stays." TextWrapping="Wrap" FontSize="12" Foreground="#68758A" Margin="0,5,0,0"/></StackPanel>
+          </Button>
+          <Button x:Name="StrokeEraseOption" Click="EraserOptionClick" Tag="StrokeEraser" MinHeight="78" Padding="12,10" Margin="0" AutomationProperties.Name="Stroke Eraser" ToolTip="Delete the entire stroke when any part of it is touched.">
+            <StackPanel Width="260"><TextBlock Text="Stroke Eraser" FontWeight="SemiBold"/><TextBlock Text="Touch any part of a stroke to remove the whole stroke." TextWrapping="Wrap" FontSize="12" Foreground="#68758A" Margin="0,5,0,0"/></StackPanel>
+          </Button>
+          <TextBlock Text="Press E to use your last eraser mode." TextWrapping="Wrap" FontSize="11" Foreground="#8791A1" Margin="0,14,0,0"/>
         </StackPanel>
       </Border>
     </Popup>

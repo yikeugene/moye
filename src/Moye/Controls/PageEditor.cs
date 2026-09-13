@@ -21,6 +21,7 @@ public sealed class PageEditor : Grid
     private readonly PaperVisual _paper = new();
     private readonly Canvas _items = new() { Background = Brushes.Transparent, ClipToBounds = true };
     private readonly PenInkCanvas _ink = new();
+    private readonly StrokePreviewVisual _linePreview = new();
     private readonly DispatcherTimer _editTimer;
     private readonly List<NoteItemFrame> _frames = [];
     private NoteItemFrame? _selectedItem;
@@ -54,6 +55,8 @@ public sealed class PageEditor : Grid
         Children.Add(_paper);
         Children.Add(_items);
         Children.Add(_ink);
+        Children.Add(_linePreview);
+        _ink.StraightLinePreviewChanged += (_, _) => _linePreview.SetStroke(_ink.StraightLinePreview);
         _editTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
         { Interval = TimeSpan.FromMilliseconds(350) };
         _editTimer.Tick += (_, _) =>
@@ -147,6 +150,9 @@ public sealed class PageEditor : Grid
             StylusTip = _tool == InkTool.Highlighter ? StylusTip.Rectangle : StylusTip.Ellipse
         };
         _ink.EraserShape = new EllipseStylusShape(Math.Max(12, _width * 4), Math.Max(12, _width * 4));
+        // InkCanvas.Select changes EditingMode even when clearing a selection.
+        // Clear first, then apply the requested tool so erasers stay erasers.
+        if (_tool != InkTool.Lasso && _ink.GetSelectedStrokes().Count > 0) _ink.Select(new StrokeCollection());
         _ink.SetRequestedMode(_tool switch
         {
             InkTool.Pen or InkTool.Highlighter => InkCanvasEditingMode.Ink,
@@ -155,6 +161,9 @@ public sealed class PageEditor : Grid
             InkTool.Lasso => InkCanvasEditingMode.Select,
             _ => InkCanvasEditingMode.None
         });
+        // A pen's inverted/tail eraser follows the same remembered eraser mode.
+        if (_tool is InkTool.StrokeEraser or InkTool.PointEraser)
+            _ink.EditingModeInverted = _tool == InkTool.StrokeEraser ? InkCanvasEditingMode.EraseByStroke : InkCanvasEditingMode.EraseByPoint;
         var editObjects = _tool is InkTool.Text or InkTool.Select;
         _ink.IsHitTestVisible = !editObjects;
         _items.IsHitTestVisible = editObjects;
@@ -163,7 +172,6 @@ public sealed class PageEditor : Grid
             if (frame.ItemContent is TextBox text) text.IsReadOnly = !editObjects;
         }
         if (!editObjects) SelectItem(null);
-        if (_tool != InkTool.Lasso) _ink.Select(new StrokeCollection());
         Cursor = _tool == InkTool.Hand ? Cursors.Hand : Cursors.Arrow;
     }
 
@@ -180,6 +188,14 @@ public sealed class PageEditor : Grid
     }
 
     public void RefreshPaper() { _paper.Template = Page.Template; _paper.InvalidateVisual(); }
+
+    private sealed class StrokePreviewVisual : FrameworkElement
+    {
+        private Stroke? _stroke;
+        public StrokePreviewVisual() { IsHitTestVisible = false; ClipToBounds = true; }
+        public void SetStroke(Stroke? stroke) { _stroke = stroke; InvalidateVisual(); }
+        protected override void OnRender(DrawingContext context) { base.OnRender(context); _stroke?.Draw(context); }
+    }
 
     public void AddImage(NoteImage item)
     {

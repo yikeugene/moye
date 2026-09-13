@@ -177,6 +177,40 @@ internal static class Program
                 throw new InvalidOperationException("The new-notebook dialog must render its paper choices and create action.");
             reports.Add(MeasureButtons(dialogContent, 544, dialogHeight, "ui-preview-new-notebook.png", "new-notebook"));
 
+            foreach (var (popupName, scene, width, requiredNames) in new[]
+            {
+                ("EraserSettingsPopup", "eraser-settings", 330, new[] { "PointEraseOption", "StrokeEraseOption" }),
+                ("PenSettingsPopup", "pen-settings", 310, new[] { "HoldToStraightenToggle" })
+            })
+            {
+                var popup = (Popup)window.FindName(popupName);
+                if (popup.IsOpen) throw new InvalidOperationException("Settings previews must never open a native popup.");
+                var popupContent = (FrameworkElement)popup.Child;
+                popup.Child = null;
+                TextElement.SetFontFamily(popupContent, window.FontFamily);
+                TextElement.SetFontSize(popupContent, window.FontSize);
+                TextElement.SetForeground(popupContent, window.Foreground);
+                popupContent.Language = window.Language;
+                // Match the initial remembered Pixel Eraser selection, as the
+                // main-window Loaded handler is deliberately never dispatched.
+                if (scene == "eraser-settings")
+                {
+                    var selected = (Button)window.FindName("PointEraseOption");
+                    selected.Background = new SolidColorBrush(Color.FromRgb(237, 242, 254));
+                    selected.Foreground = (Brush)application.Resources["Accent"];
+                    selected.BorderBrush = (Brush)application.Resources["Accent"];
+                    selected.BorderThickness = new Thickness(1);
+                }
+                popupContent.Measure(new Size(width, double.PositiveInfinity));
+                var height = (int)Math.Ceiling(popupContent.DesiredSize.Height);
+                if (height <= 0 || height > SystemParameters.WorkArea.Height)
+                    throw new InvalidOperationException($"The {scene} popup must have a usable height within the work area.");
+                var fileName = $"ui-preview-{scene}.png";
+                SaveImage(output, fileName, RenderElement(popupContent, width, height));
+                VerifyDetached(popupContent, window);
+                reports.Add(MeasureButtons(popupContent, width, height, fileName, scene, requiredNames));
+            }
+
             foreach (var report in reports)
                 Console.WriteLine($"{report.Image}: {report.Width} x {report.Height} DIP; {report.Buttons.Count} buttons; " +
                     $"{report.Under44Dip.Count} below 44 DIP; {report.Overlaps.Count} overlaps; {report.Clipped.Count} clipped.");
@@ -258,7 +292,7 @@ internal static class Program
         // IsVisible requires a presentation source and is false for this deliberately
         // detached tree. Check the declared visibility through all local ancestors.
         var visibleButtons = Descendants<ButtonBase>(content)
-            .Where(b => b is Button or RadioButton)
+            .Where(b => b is Button or RadioButton or CheckBox)
             .Where(b => HasVisibleAncestors(b) && b.ActualWidth > 0 && b.ActualHeight > 0).ToList();
         var buttons = visibleButtons.Select(button =>
             {

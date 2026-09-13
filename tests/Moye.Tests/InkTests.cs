@@ -1,11 +1,13 @@
 using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
 using Moye.Controls;
 using Moye.Models;
+using Moye.ViewModels;
 
 namespace Moye.Tests;
 
@@ -80,6 +82,77 @@ public sealed class InkTests
             Assert.True(restored[0].GetBounds().Right < restored[1].GetBounds().Left);
             Assert.True(restored[0].GetBounds().Left < 25);
             Assert.True(restored[1].GetBounds().Right > 215);
+        });
+    }
+
+    [Theory]
+    [InlineData(InkTool.PointEraser, InkCanvasEditingMode.EraseByPoint)]
+    [InlineData(InkTool.StrokeEraser, InkCanvasEditingMode.EraseByStroke)]
+    public void EraserSelectionUsesNativeModeAndRetainsTailEraserWhenWriting(InkTool tool, InkCanvasEditingMode expected)
+    {
+        Sta(() =>
+        {
+            var editor = CreateEditor(new NotePage());
+            editor.SetTool(tool, Colors.Black, 4);
+            Assert.Equal(expected, editor.InkCanvas.EditingMode);
+            Assert.Equal(expected, editor.InkCanvas.EditingModeInverted);
+            editor.SetTool(InkTool.Pen, Colors.Blue, 2.5);
+            Assert.Equal(InkCanvasEditingMode.Ink, editor.InkCanvas.EditingMode);
+            Assert.Equal(expected, editor.InkCanvas.EditingModeInverted);
+            editor.InkCanvas.Strokes.Add(PressureStroke());
+            editor.SetTool(InkTool.Lasso, Colors.Black, 4);
+            editor.SelectAllInk();
+            Assert.Single(editor.InkCanvas.GetSelectedStrokes());
+            editor.SetTool(tool, Colors.Black, 4);
+            Assert.Empty(editor.InkCanvas.GetSelectedStrokes());
+            Assert.Equal(expected, editor.InkCanvas.EditingMode);
+        });
+    }
+
+    [Fact]
+    public void WholeStrokeHitKeepsNeighborAndCommitsOneUndoableIsfEdit()
+    {
+        Sta(() =>
+        {
+            var page = new NotePage();
+            var document = new NotebookDocument { Pages = [page] };
+            var editor = CreateEditor(page);
+            var target = PressureStroke();
+            var neighbor = PressureStroke();
+            neighbor.Transform(new Matrix(1, 0, 0, 1, 0, 160), false);
+            neighbor.DrawingAttributes.Color = Colors.Blue;
+            editor.InkCanvas.Strokes.Add(new StrokeCollection { target, neighbor });
+            editor.CommitPendingEdits();
+            editor.SetTool(InkTool.StrokeEraser, Colors.Black, 4);
+
+            var history = new NotebookHistory();
+            history.Reset(document);
+            var changes = 0;
+            editor.ContentChanged += (_, _) => { changes++; history.Record(document); };
+
+            // Exercise WPF's incremental stroke hit testing and whole-stroke
+            // removal without creating a window or injecting pointer events.
+            var hitTester = editor.InkCanvas.Strokes.GetIncrementalStrokeHitTester(editor.InkCanvas.EraserShape);
+            hitTester.StrokeHit += (_, hit) => editor.InkCanvas.Strokes.Remove(hit.HitStroke);
+            hitTester.AddPoints(new[] { new Point(70, 40), new Point(70, 80) });
+            hitTester.EndHitTesting();
+            Assert.Same(neighbor, Assert.Single(editor.InkCanvas.Strokes));
+            editor.CommitPendingEdits();
+            editor.CommitPendingEdits();
+            Assert.Equal(1, changes);
+
+            var saved = Assert.Single(new StrokeCollection(new MemoryStream(page.InkData)));
+            Assert.Equal(Colors.Blue, saved.DrawingAttributes.Color);
+            Assert.Equal(3, saved.StylusPoints.Count);
+            Assert.InRange(saved.StylusPoints[0].Y, 199.95, 200.05);
+            Assert.InRange(saved.StylusPoints[0].PressureFactor, .19f, .21f);
+            Assert.InRange(saved.StylusPoints[2].PressureFactor, .89f, .91f);
+
+            var undone = Assert.IsType<NotebookDocument>(history.Undo());
+            Assert.Equal(2, new StrokeCollection(new MemoryStream(undone.Pages[0].InkData)).Count);
+            Assert.False(history.CanUndo);
+            var redone = Assert.IsType<NotebookDocument>(history.Redo());
+            Assert.Single(new StrokeCollection(new MemoryStream(redone.Pages[0].InkData)));
         });
     }
 
