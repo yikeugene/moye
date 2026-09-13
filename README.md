@@ -33,6 +33,14 @@ Paper previews, page backgrounds and exported PDFs use the same template geometr
 
 With Pen or Highlighter, pause at a line endpoint for about 0.65 seconds to straighten it, drag to adjust, then lift. **Pen Settings → Draw and Hold** toggles this behavior and remembers the choice. **Eraser Settings** offers Pixel or Stroke erasing, a **12–120 DIP** size control, and **Erase highlighter only**.
 
+## Typing notes — local development
+
+The current development tree adds a visible **Type** button and a text-formatting bar. These improvements remain local, unreleased work on **1.5.0**; the version has not been increased.
+
+Click **Type** to start or continue a text box, then type directly. Click elsewhere on the page or use **＋ Text box** for another box. The text bar offers font family, size, bold, italic, color, alignment, and plain bullet or numbered line prefixes. Formatting applies to the **entire text box**, including when only a word is selected; this is not per-word rich text. Use `Ctrl+B` / `Ctrl+I` for bold and italic, and `Ctrl+Enter` or `Esc` to finish typing and return to Pen.
+
+Text boxes grow down to the page boundary and scroll internally when their content exceeds that space. They do not flow automatically onto another page; continue in a new box on the next page to make the remaining text visible in the page layout and exported PDF. Text editing uses the native text control for clipboard, undo and IME handling. Basic typing, Chinese IME candidate selection and selected formatting/focus flows have passed a live desktop check; broader input and clipboard acceptance remains open.
+
 ## Your notes stay local
 
 Notes are stored in `%LOCALAPPDATA%\Moye\moye.db`, with SQLite journal files alongside it. Moving the app folder does not move your notebooks. Use **More → Back Up All Notebooks** to create a portable `.moye` backup. Restoring creates new copies and does not overwrite existing notebooks.
@@ -68,9 +76,11 @@ For a separate library, use `Moye.exe --data-dir .\sample-library`. The app keep
 
 ## Verification and limitations
 
-The automated suite covers notebooks, SQLite storage, autosave recovery, editable backups, ink operations, history, writing-preference persistence and PDF import/export. Detached WPF layout checks cover the notebook home, paper templates, settings and editor. These checks do not establish successful live pen, touch, or IME interaction. See [release notes](docs/RELEASE_NOTES_1.5.0.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for validation status.
+The local automated run on **2026-09-14** passed **178 tests and 21 detached UI scenes**. The suite covers notebooks, SQLite storage, autosave recovery, editable backups, ink operations, history, writing-preference persistence, typing helpers and PDF import/export. Detached WPF layout checks cover the notebook home, paper templates, settings, editor and text controls. Automated checks alone do not establish successful live pen, touch, or IME interaction. See [release notes](docs/RELEASE_NOTES_1.5.0.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for published-release validation; the typing update above remains local work.
 
-Physical pen feel, fast small handwriting, pressure response, palm rejection, touch gestures, alignment after zoom, pen buttons, and sleep recovery still need validation on real hardware. Direct Unicode text entry and persistence have been checked; real IME composition and candidate windows have not.
+A live Windows desktop check on **2026-09-14**, using an isolated sample notebook, verified Type creating/resuming one box, Chinese IME composition and candidate selection (`t`, then Space, committed `他`), switching to English input, `Ctrl+B`, setting 24 pt and continuing to type after Enter, bullet insertion, Enter list continuation, native `Ctrl+Z` undo of that continuation, and `Ctrl+Enter` returning to Pen. The packaged app reopened the saved text and formatting, accepted `T` from the page workspace with the Chinese IME active, and cancelled a short composition and an uncommitted font-size change with `Esc` while keeping Type mode.
+
+Physical pen feel, fast small handwriting, pressure response, palm rejection, touch gestures, alignment after zoom, pen buttons, and sleep recovery still need validation on real hardware. Long or interrupted IME composition, broader candidate selection, text clipboard operations and cross-page input transitions also remain unverified by this desktop check.
 
 Encrypted PDFs, interactive forms, digital signatures, and internal or cross-page annotation actions are unsupported. Ordinary URI links can be retained. Newly added text boxes export as vector outlines, so their text cannot be selected or searched in the exported PDF; original PDF text retains its existing capabilities. Use `.moye` when you need an editable backup.
 

@@ -264,6 +264,7 @@ public sealed class BackupService(INotebookRepository repository) : IBackupServi
             {
                 if (text is null || !ValidId(text.Id) || !objectIds.Add(text.Id) || !Position(text.X) || !Position(text.Y)
                     || !Dimension(text.Width) || !Dimension(text.Height) || !double.IsFinite(text.FontSize) || text.FontSize <= 0 || text.FontSize > 1000
+                    || !Enum.IsDefined(text.Alignment)
                     || text.Text is null || text.Text.Length > 1_000_000 || string.IsNullOrWhiteSpace(text.FontFamily) || text.FontFamily.Length > 1024
                     || string.IsNullOrWhiteSpace(text.Color) || text.Color.Length > 64) throw Invalid("Invalid text box structure.");
             }

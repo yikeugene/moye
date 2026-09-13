@@ -5,6 +5,14 @@ namespace Moye.Models;
 // Numeric values are persisted in existing notebooks and .moye backups.
 public enum PaperTemplate { Plain = 0, Ruled = 1, Grid = 2, DotGrid = 3, Cornell = 4, Graph = 5 }
 public enum InkTool { Pen, Highlighter, StrokeEraser, PointEraser, Lasso, Text, Select, Hand }
+public enum NoteTextAlignment { Left = 0, Center = 1, Right = 2 }
+
+public static class NoteTextLayout
+{
+    // WPF TextBoxView reserves this margin for its bidi caret even when TextBox.Padding is zero.
+    public const double HorizontalInset = 2;
+    public static double ContentWidth(double boxWidth) => Math.Max(1, boxWidth - 2 * HorizontalInset);
+}
 
 public sealed class NotebookDocument
 {
@@ -51,6 +59,10 @@ public sealed record NoteText
     public string Text { get; set; } = "";
     public string FontFamily { get; set; } = "Microsoft JhengHei";
     public double FontSize { get; set; } = 22;
+    // Additive format fields: older documents remain regular, upright, and left aligned.
+    public bool Bold { get; set; }
+    public bool Italic { get; set; }
+    public NoteTextAlignment Alignment { get; set; } = NoteTextAlignment.Left;
     public string Color { get; set; } = "#FF25334A";
 }
 

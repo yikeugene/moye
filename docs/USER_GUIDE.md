@@ -2,6 +2,8 @@
 
 This guide describes the English interface in Moye 1.5.0 for Windows 11 x64.
 
+The **Type** button and text-formatting workflow below describe a local development update. They have not been published as a new release; the app version remains 1.5.0.
+
 ## Notebooks and pages
 
 Open `Moye.exe` to see **Your Notebooks**. Moye always starts on this home screen and waits for you to choose a notebook. An empty library shows a **Create a Notebook** button; it does not create a notebook automatically.
@@ -73,11 +75,23 @@ Notebooks open in a fit-page view. The footer combines page navigation, save sta
 
 The sidebar button or `F9` hides and shows the sidebar. Hold **Space** and drag with the left mouse button to pan temporarily; release Space to return to your writing tool.
 
-The **Focus Mode** icon or `F11` switches to a full-screen writing workspace and hides the notebook header, writing toolbar, sidebar and footer. **Exit Focus** remains available, and save errors remain visible. Click **Exit Focus**, press `F11`, or press `Esc` to leave. These controls change the display, not the paper's dimensions.
+The **Focus Mode** icon or `F11` switches to a full-screen writing workspace and hides the notebook header, writing toolbar, sidebar and footer. **Exit Focus** remains available, and save errors remain visible. Click **Exit Focus**, press `F11`, or press `Esc` to leave. When typing in a text box, `Esc` first leaves text editing. These controls change the display, not the paper's dimensions.
 
-## Text and images
+## Typing notes
 
-Select **Text**, then click the page to create a text box, or click an existing text box to edit it. Text boxes support line breaks and Windows text input. While editing text, text-entry and text-editing shortcuts act on that box.
+Click **Type** to begin typing on the current page or continue editing the selected or most recently used text box on that page. If no text box exists, Moye creates one. Click an existing box to place the caret there. To add another box, use **＋ Text box** in the text bar or click an empty part of the page while Type is selected.
+
+The text bar controls the selected box's font family, font size (**6–96 pt**), bold, italic, color and Left/Center/Right alignment. **All formatting applies to the entire box**, even if you have selected just one word. To use different formatting for a heading and body, create separate text boxes.
+
+**• List** and **1. List** toggle plain text prefixes on the current line or selected lines. `Enter` continues a marked line; pressing `Enter` on an empty marked item ends the list. The markers remain editable characters, not structured rich-text list objects or an automatic outline.
+
+While editing an ordinary paragraph, `Enter` inserts a line break. `Ctrl+B` toggles bold for the box and `Ctrl+I` toggles italic. `Ctrl+Enter` or `Esc` finishes typing, moves focus out of the text box and returns to Pen. Standard text selection, copy/cut/paste and undo continue to act on the text editor; notebook ink shortcuts do not replace them. Finish typing before using notebook Undo to reverse box formatting. Windows IME composition uses the native text control. A live desktop check confirmed basic Chinese candidate selection followed by English typing; the broader input checks below remain open.
+
+A box grows vertically while you type, up to the bottom of its page. Additional text scrolls within the box. It does **not** create a continuation on the next page. Move the overflow into another text box on the next page when you need the full text visible in the page layout or PDF output.
+
+Font, size, bold, italic, color and alignment are stored with the text box. Existing notes remain compatible. A `.moye` backup keeps text editable; added PDF text is still exported as vector outlines rather than searchable or selectable text.
+
+## Images and object placement
 
 Choose **Insert → Insert Image** for PNG or JPEG files. When you are not editing text, `Ctrl+V` pastes Moye ink if present on the clipboard, otherwise an image or screenshot.
 
@@ -118,7 +132,7 @@ If saving fails, pending content stays in memory. Use **Retry Save**, or export 
 | Action | Shortcut |
 |---|---|
 | Pen / highlighter / eraser in its selected mode | `B` / `H` / `E` |
-| Lasso / text / select objects | `L` / `T` / `V` |
+| Lasso / Type / select objects | `L` / `T` / `V` |
 | First nine favorite presets | `1`–`9` or numeric keypad `1`–`9` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` or `Ctrl+Shift+Z` |
 | Duplicate selected ink or object | `Ctrl+D` |
@@ -131,17 +145,20 @@ If saving fails, pending content stays in memory. Use **Retry Save**, or export 
 | Focus mode | `F11` |
 | Zoom | `Ctrl+mouse wheel` |
 | Temporary mouse pan | Hold `Space` and drag with the left mouse button |
+| Bold / italic for the whole text box while typing | `Ctrl+B` / `Ctrl+I` |
+| Finish typing | `Ctrl+Enter` |
+| Leave text-box focus | `Esc` |
 
 ## Device checks still needed
 
-Physical pen and touch validation, and real IME composition, remain outstanding. Automated checks do not establish these behaviors on a particular laptop:
+Physical pen and touch validation remains outstanding. A live desktop check on 2026-09-14 confirmed basic Chinese IME composition and candidate selection, English typing, Type resume, bold, size entry with restored text focus, bullet continuation and its native undo, and Ctrl+Enter returning to Pen. The packaged app also reopened saved text/formatting, accepted T from the page workspace with the Chinese IME active, and cancelled short composition and font-size edits with Esc. This covers a short typing session; the following device and broader input checks remain open:
 
 1. Fast continuous writing, small characters, light and heavy pressure, highlighting, and both eraser modes.
 2. Resting a palm before and after pen contact, without producing finger ink or moving the page.
 3. One-finger scrolling, two-finger zoom, and pen alignment after scrolling and zooming.
 4. Moving the pen beyond the page, lifting it, switching windows, and resuming from sleep without a stuck input state.
 5. The specific pen's tail eraser and side buttons, which depend on driver events.
-6. IME composition, candidate selection, line breaks, editing existing text, and retaining content across page changes. Direct Unicode entry is not the same as testing IME composition.
+6. Long or interrupted IME composition, additional candidate choices, text clipboard operations, and retaining composition/focus correctly across page changes. The short candidate and cancellation checks do not establish these longer or interrupted workflows.
 7. Draw-and-hold preview before lifting, endpoint adjustment, freehand release, pressure variation, and pen-up/capture-loss cleanup at different zoom levels. The default hold timing and jitter tolerance may need tuning for your digitizer.
 
 See the README's [verification and limitations](../README.md#verification-and-limitations) summary for the scope of automated checks and outstanding device validation.

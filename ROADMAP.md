@@ -6,6 +6,8 @@ Moye should support a complete university workflow: write during a lecture, anno
 
 This status reflects **Moye 1.5.0**, reviewed on **2026-09-14**. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
 
+A local, unreleased typing update adds an explicit Type action, contextual text controls and whole-box formatting without changing the 1.5.0 version. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; it is not a new published release.
+
 ## Status and evidence
 
 - **Existing:** the described behavior is implemented. This does not establish performance on every device.
@@ -21,6 +23,7 @@ Code and tests provide the following evidence:
 | Draw-and-hold recognition and native commit lifecycle | [HoldToStraightenSession](src/Moye/Controls/HoldToStraightenSession.cs), [gesture tests](tests/Moye.Tests/HoldToStraightenTests.cs), [lifecycle tests](tests/Moye.Tests/StraightInkLifecycleTests.cs) |
 | Library, pages, history, navigation and shortcuts | [MainViewModel](src/Moye/ViewModels/MainViewModel.cs), [NotebookHistory](src/Moye/ViewModels/NotebookHistory.cs), [MainWindow](src/Moye/MainWindow.xaml.cs), [library tests](tests/Moye.Tests/LibraryTests.cs), [history tests](tests/Moye.Tests/HistoryTests.cs) |
 | Paper, text, images and persistent document fields | [DocumentModels](src/Moye/Models/DocumentModels.cs), [PaperVisual](src/Moye/Controls/PaperVisual.cs), [PaperTemplatePicker](src/Moye/Controls/PaperTemplatePicker.cs), [NoteItemFrame](src/Moye/Controls/NoteItemFrame.cs) |
+| Local typing UI, whole-box typography and plain line prefixes | [typing UI](src/Moye/MainWindow.Typing.cs), [PageEditor](src/Moye/Controls/PageEditor.cs), [text editing helpers](src/Moye/Controls/TextEditing.cs), [typing tests](tests/Moye.Tests/TypingTests.cs), [text persistence tests](tests/Moye.Tests/TextPersistenceTests.cs) |
 | Autosave, transaction integrity and recovery after write failure | [AutosaveCoordinator](src/Moye/Services/AutosaveCoordinator.cs), [SQLite repository](src/Moye/Services/SqliteNotebookRepository.cs), [storage tests](tests/Moye.Tests/StorageTests.cs) |
 | Persistent writing presets and settings recovery | [WritingPreferences](src/Moye/Models/WritingPreferences.cs), [WritingPreferencesStore](src/Moye/Services/WritingPreferencesStore.cs), [preset manager](src/Moye/Controls/PresetManagerDialog.cs), [preference tests](tests/Moye.Tests/WritingPreferencesTests.cs) |
 | Preset application, editable ink clipboard, selection width, eraser filtering and thumbnail tool preservation | [writing UI](src/Moye/MainWindow.Writing.cs), [writing workflow tests](tests/Moye.Tests/WritingWorkflowTests.cs) |
@@ -271,9 +274,14 @@ P2 changes that introduce new persistent fields or document modes need a documen
 
 **Status: Partial · Hardware validation for IME. Priority: P1.**
 
+Implemented locally: Type creates or resumes a box; the contextual bar formats the whole box; plain list markers support Enter continuation; boxes grow to the page boundary and scroll after reaching it. The local run on **2026-09-14** passed **178 automated tests and 21 detached UI scenes**, including the linked typing and text-persistence regressions. A live Windows desktop check that day confirmed a short Chinese IME candidate selection (`t` then Space committed `他`), English input, Type resume, bold, 24 pt size entry followed by more typing, bullet continuation and native undo, and Ctrl+Enter returning to Pen. The acceptance items below stay open because clipboard, longer/interrupted composition, cross-page transitions and the complete end-to-end desktop workflow still require their respective verification.
+
 - [x] Editable Unicode text boxes, line wrapping, movement/resizing and selected text-object color changes. The model stores font family and size.
-- [ ] Expose font/size controls, bold, italic, alignment, bullets and numbered lists.
-- [ ] Validate actual IME composition, candidate windows and mixed-language editing. Direct Unicode persistence tests do not cover composition.
+- [ ] Complete and verify the local Type workflow: start/continue a text box, add another box, and expose font family/size, bold, italic, color and alignment for the whole box. Preserve formatting through save/reopen, editable backup and vector PDF export.
+- [ ] Verify local plain bullet/number prefixes, Ctrl+B/Ctrl+I whole-box formatting, Ctrl+Enter to finish, and Escape focus handling with native text clipboard and undo.
+- [ ] Verify automatic box-height growth to the page boundary and internal overflow scrolling. Page continuation is manual; there is no automatic flow to the next page.
+- [ ] Add per-range rich text and structured list behavior if needed; plain line prefixes and whole-box font controls do not complete those capabilities.
+- [ ] Extend the short live candidate/cancellation checks to long or interrupted composition, additional candidate choices and mixed-language editing across pages. Direct Unicode persistence tests do not cover composition, and short desktop checks do not complete IME acceptance.
 
 ### 25. Search
 

@@ -49,12 +49,13 @@ public partial class MainWindow : Window
         _preferencesStore = preferencesStore ?? new WritingPreferencesStore();
         ViewModel = new(repository); InitializeComponent(); DataContext = ViewModel;
         InitializeWritingUi();
+        InitializeTypingUi();
         Width = Math.Min(1400, SystemParameters.WorkArea.Width - 24);
         Height = Math.Min(960, SystemParameters.WorkArea.Height - 24);
         SystemEvents.PowerModeChanged += PowerModeChanged;
         PageList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(DocumentScrolled));
         Viewport.SizeChanged += (_, _) => ScheduleFitWidth();
-        ViewModel.DocumentReplaced += (_, _) => { _scroll = null; SyncPageTemplate(); SelectLibraryCurrent(); };
+        ViewModel.DocumentReplaced += (_, _) => { _typingRequest++; _scroll = null; SyncPageTemplate(); SelectLibraryCurrent(); UpdateTextToolbar(); };
         ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.HasSaveError)) ApplyFocusChrome(); };
         ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.Zoom)) { foreach (var editor in _editors.Values) editor.LayoutTransform = new ScaleTransform(ViewModel.Zoom, ViewModel.Zoom); _pdfZoomTimer.Stop(); _pdfZoomTimer.Start(); } };
         _pdfZoomTimer.Tick += async (_, _) => { _pdfZoomTimer.Stop(); await RefreshVisiblePdfsAsync(); };
@@ -159,9 +160,10 @@ public partial class MainWindow : Window
     private void ThumbnailSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         SyncPageTemplate();
+        UpdateTextToolbar();
         if (_ready && !_suppressPageSelection) ScrollToSelected();
     }
-    private void PageSelectionChanged(object sender, SelectionChangedEventArgs e) => SyncPageTemplate();
+    private void PageSelectionChanged(object sender, SelectionChangedEventArgs e) { SyncPageTemplate(); UpdateTextToolbar(); }
     private void DocumentScrolled(object sender, ScrollChangedEventArgs e)
     {
         UpdateVisiblePageSelection();
@@ -206,7 +208,9 @@ public partial class MainWindow : Window
         editor.VisualContentChanged += EditorVisualChanged;
         editor.AssetLoadFailed += EditorAssetFailed;
         editor.PenContactChanged += EditorPenContactChanged;
+        editor.TextSelectionChanged += TextSelectionChanged;
         _editors[host] = editor; host.Child = editor;
+        UpdateTextToolbar();
         try
         {
             if (item.Page.Pdf is not null)
@@ -227,13 +231,16 @@ public partial class MainWindow : Window
         {
             editor.CommitPendingEdits();
             editor.ContentChanged -= EditorChanged; editor.VisualContentChanged -= EditorVisualChanged; editor.AssetLoadFailed -= EditorAssetFailed; editor.PenContactChanged -= EditorPenContactChanged;
+            editor.TextSelectionChanged -= TextSelectionChanged;
             _dirtyThumbnails.Remove(editor); host.Child = null;
+            UpdateTextToolbar();
         }
     }
     private void EditorChanged(object? sender, EventArgs e)
     {
         if (sender is not PageEditor editor || ViewModel.Document?.Pages.Contains(editor.Page) != true) return;
         ViewModel.Changed(); _dirtyThumbnails.Add(editor); _thumbnailTimer.Start();
+        if (ReferenceEquals(editor, CurrentEditor)) UpdateTextToolbar();
     }
     private void EditorPenContactChanged(object? sender, EventArgs e)
     {
@@ -251,6 +258,7 @@ public partial class MainWindow : Window
     {
         if (host.DataContext is not PageViewModel item) return;
         _suppressPageSelection = true; ViewModel.SelectedPage = item; SyncPageTemplate(); _suppressPageSelection = false;
+        UpdateTextToolbar();
         if (_tool is InkTool.Pen or InkTool.Highlighter or InkTool.PointEraser or InkTool.StrokeEraser or InkTool.Lasso) PageList.Focus();
     }
 
@@ -414,6 +422,7 @@ public partial class MainWindow : Window
             ConfigureEditor(editor);
         }
         ToolStatus.Text = (_tool switch { InkTool.Pen => "Pen", InkTool.Highlighter => "Highlighter", InkTool.PointEraser => "Pixel Eraser · Keep the rest of the stroke", InkTool.StrokeEraser => "Stroke Eraser · Remove the whole stroke", InkTool.Lasso => "Lasso · Draw to select / Ctrl+D to duplicate", InkTool.Text => "Text · Tap the page to type", InkTool.Select => "Select · Drag to move / resize from the corner", _ => "Browse" }) + "  ·  One finger to pan · Pinch to zoom";
+        UpdateTextToolbar();
     }
     private void ColorClick(object sender, RoutedEventArgs e)
     {
@@ -548,7 +557,7 @@ public partial class MainWindow : Window
     private async void RetrySaveClick(object sender, RoutedEventArgs e) => await RunAsync("Retrying save…", async () => { await ViewModel.Autosave.RetryAsync(); await SavePreferencesAsync(true); });
     private void MoreClick(object sender, RoutedEventArgs e) { var button = (Button)sender; button.ContextMenu.PlacementTarget = button; button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true; }
     private void HelpClick(object sender, RoutedEventArgs e) => MessageBox.Show(this,
-        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\n\nAll Notes saves and returns to your notebook home. Click the title to rename.\nUse Insert (+) for pages, PDFs and images.\nUse Presets for your everyday pens; press 1–9 to switch.\nPen Settings controls color, thickness and Draw and Hold.\nDraw a line, hold about 0.65 seconds, then lift to finish.\nWhile held, drag the endpoint to adjust length and angle.\nClick the eraser to choose Pixel or Stroke, size and highlighter-only erasing.\nChoose a paper preview when creating notebooks or pages.\nPage Options changes existing page backgrounds.\nFit Width sits beside Fit Page and fills the writing area.\nClick the zoom percentage for Actual Size.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Text · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nCtrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nHold Space + drag with the mouse to pan\nDelete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nFocus Mode hides tools; Exit Focus or Escape brings them back.\n\nIn Select mode, drag the top-right handle to move an object,\nand the bottom-right handle to resize it. In Text mode, tap\nthe page to add text or click existing text to edit it.\n\nNotes save automatically on this device. Use More to create\n.moye backups that keep all content editable. Use Share to\nexport a PDF with flattened annotations.\n\nMoye 1.5 · Offline Windows notebooks", "Moye User Guide");
+        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nAll Notes saves and returns home. Click the title to rename.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Presets for your everyday pens; press 1–9 to switch.\nPen Settings controls thickness, opacity, pressure and Draw and Hold.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nShare exports PDF with flattened annotations and outlined added text.\n\nMoye 1.5.0 · Offline Windows notebooks", "Moye User Guide");
 
     private void SidebarTabClick(object sender, RoutedEventArgs e) => ShowSidebarTab((string)((Button)sender).Tag == "Notebooks");
     private async void ShowNotebooksClick(object sender, RoutedEventArgs e)
@@ -816,6 +825,13 @@ public partial class MainWindow : Window
         if (e.Key == Key.F11) { ToggleFocus(); e.Handled = true; return; }
         bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
         if (ctrl && e.Key == Key.S) { CommitEditors(); await RunAsync("Saving…", () => ViewModel.Autosave.FlushAsync()); e.Handled = true; return; }
+        if (TextToolbar.IsKeyboardFocusWithin || TextFontPicker.IsDropDownOpen || TextSizePicker.IsDropDownOpen || TextAlignmentPicker.IsDropDownOpen) return;
+        if (CurrentEditor is { SelectedText: not null, IsKeyboardFocusWithin: true, IsTextComposing: false } && Keyboard.FocusedElement is TextBoxBase)
+        {
+            if (ctrl && e.Key == Key.B) { TextBoldClick(this, e); e.Handled = true; return; }
+            if (ctrl && e.Key == Key.I) { TextItalicClick(this, e); e.Handled = true; return; }
+            if (ctrl && e.Key == Key.Enter || e.Key == Key.Escape) { FinishTyping(); e.Handled = true; return; }
+        }
         // Do not steal IME, clipboard, or text undo from an active text box.
         if (Keyboard.FocusedElement is TextBoxBase) return;
         if (e.Key == Key.Escape) { if (_focusMode) ToggleFocus(); else SetTool(InkTool.Pen); e.Handled = true; return; }
@@ -843,6 +859,7 @@ public partial class MainWindow : Window
                 if (preset is not null) ApplyPreset(preset);
                 e.Handled = true; return;
             }
+            if (e.Key == Key.T) { await StartTypingAsync(); e.Handled = true; return; }
             InkTool? tool = e.Key switch { Key.B => InkTool.Pen, Key.H => InkTool.Highlighter, Key.E => _eraserTool, Key.L => InkTool.Lasso, Key.T => InkTool.Text, Key.V => InkTool.Select, _ => null };
             if (tool.HasValue) { SetTool(tool.Value); e.Handled = true; }
             if (e.Key == Key.Delete) { CurrentEditor?.DeleteSelection(); e.Handled = true; }

@@ -310,13 +310,24 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
         if (string.IsNullOrEmpty(text.Text)) return;
         var color = (Color)ColorConverter.ConvertFromString(text.Color);
         var formatted = new FormattedText(text.Text, CultureInfo.GetCultureInfo("zh-HK"), FlowDirection.LeftToRight,
-            new Typeface(text.FontFamily), text.FontSize, Brushes.Black, 1)
+            new Typeface(new FontFamily(text.FontFamily), text.Italic ? FontStyles.Italic : FontStyles.Normal,
+                text.Bold ? FontWeights.Bold : FontWeights.Normal, FontStretches.Normal), text.FontSize, Brushes.Black, 1)
         {
-            MaxTextWidth = Math.Max(1, text.Width), MaxTextHeight = Math.Max(1, text.Height),
-            LineHeight = text.FontSize * 1.4, Trimming = TextTrimming.None
+            // Include the partially visible last line, then apply the same box clip as TextBox.
+            MaxTextWidth = NoteTextLayout.ContentWidth(text.Width), MaxTextHeight = Math.Max(1, text.Height + text.FontSize * 1.4),
+            LineHeight = text.FontSize * 1.4, Trimming = TextTrimming.None,
+            TextAlignment = text.Alignment switch
+            {
+                NoteTextAlignment.Center => TextAlignment.Center,
+                NoteTextAlignment.Right => TextAlignment.Right,
+                _ => TextAlignment.Left
+            }
         };
-        var geometry = PathGeometry.CreateFromGeometry(formatted.BuildGeometry(new Point(text.X, text.Y)));
+        var geometry = PathGeometry.CreateFromGeometry(formatted.BuildGeometry(new Point(text.X + NoteTextLayout.HorizontalInset, text.Y)));
+        var state = graphics.Save();
+        graphics.IntersectClip(new XRect(text.X, text.Y, Math.Max(1, text.Width), Math.Max(1, text.Height)));
         graphics.DrawPath(new XSolidBrush(XColor.FromArgb(color.A, color.R, color.G, color.B)), new XGraphicsPath(geometry));
+        graphics.Restore(state);
     }
 
     private static void NormalizeNewImageStreams(PdfDocument document, HashSet<PdfObject> existingObjects)

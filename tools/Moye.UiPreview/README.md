@@ -17,6 +17,8 @@ Output files in `artifacts/`:
 - `ui-preview-1400.png`: 1400 × 960 DIP.
 - `ui-preview-1024.png`: 1024 × 700 DIP.
 - `ui-preview-fit-width-{1400,1024}.png`: the editor with paper fitted to the workspace width.
+- `ui-preview-typing-{1400,1024}.png`: Type mode with the contextual font, size, style, alignment and list toolbar.
+- `ui-preview-typing-empty.png` and `ui-preview-typing-overflow.png`: the first text box on an empty page and the warning for text exceeding a page.
 - `ui-preview-library-{1400,1024}.png`: notebook selection home.
 - `ui-preview-library-empty-{1400,1024}.png`: empty library with a create action.
 - `ui-preview-library-search-{1400,1024}.png`: search with no matching notebook.
@@ -33,5 +35,7 @@ These images support internal layout review; they do not validate live UI intera
 Each scene must contain its expected controls: the home requires New Notebook; the editor requires Pen, Pen Settings, and Fit Width; focus requires Exit Focus; the paper picker requires six radio choices with exactly one selected; the eraser popup requires both eraser mode buttons; the pen popup requires Draw and Hold. Touch-target checks include the template radio cards, checkboxes and regular buttons, excluding native scrollbar parts. The process exits unsuccessfully when required controls are missing or button bounds are too small, overlapping, or outside the rendered area.
 
 Settings previews detach the real `Popup.Child` while `IsOpen` remains false, inherit the main-window typography, and use the content's natural height. They render content without creating a native popup or invoking click/keyboard handlers. The Pixel Eraser highlight represents the application's initial remembered mode because the main window's Loaded handler is intentionally not dispatched.
+
+Typing previews call the real window commands against a registered synthetic page editor. They verify that Type resumes text without duplicates, formatting updates the model, new boxes copy style without note content, and overflow raises a warning. The font, size and alignment pickers must also be at least 44 DIP. These command checks do not exercise native focus, input-method composition or keyboard routing.
 
 Fit Width validation measures the realized page host and editor in viewport coordinates: their horizontal edges must align, each page gutter must be between 0 and 60 DIP, and the page must cover at least 85% of the viewport width. This verifies the rendered result rather than only comparing numeric zoom formulas. The dialog preview checks its real template choices and Create Notebook action using the same button layout rules.

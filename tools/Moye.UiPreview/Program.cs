@@ -141,6 +141,8 @@ internal static class Program
                 reports.Add(report);
             }
 
+            VerifyTypingCommandsAndLayout(window, content, repository, output, reports);
+
             // Exercise the compiled focus chrome without changing WindowStyle or
             // creating a native window. Save-error UI remains separately visible.
             var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
@@ -298,6 +300,81 @@ internal static class Program
         Set("_ready", false); Set("_canSavePreferences", true);
         ((FrameworkElement)window.FindName("PreferencesRetryButton")).Visibility = Visibility.Collapsed;
         Call("ApplyPreset", defaults.Presets[0], false);
+    }
+
+    private static void VerifyTypingCommandsAndLayout(MainWindow window, FrameworkElement content, FixtureRepository repository,
+        string output, List<PreviewReport> reports)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        object? Call(string name, params object?[] args) => typeof(MainWindow).GetMethod(name, flags)!.Invoke(window, args);
+        var editors = (Dictionary<Border, PageEditor>)typeof(MainWindow).GetField("_editors", flags)!.GetValue(window)!;
+        var pageList = (ListBox)window.FindName("PageList");
+        var selected = window.ViewModel.SelectedPage!;
+        var host = Descendants<Border>(pageList).First(b => b.DataContext == selected && b.Child is PageEditor);
+        var original = host.Child;
+        var page = selected.Page;
+        var originalTexts = page.Texts;
+        page.Texts = [new NoteText
+        {
+            X = 72, Y = 72, Width = 640, Height = 320, FontFamily = "Segoe UI", FontSize = 22,
+            Text = "Lecture 07 — Linear Algebra\n\nEigenvalues and eigenvectors\nAv = λv\n\n• Review the worked example\n• Revisit this proof before the tutorial\n\n中文筆記也可以直接輸入。"
+        }];
+        var editor = new PageEditor(page, repository.GetAssetAsync);
+        host.Child = editor;
+        // Register only this synthetic editor. No UI Loaded handler, persistence,
+        // native keyboard focus, clipboard or input injection is involved.
+        editors[host] = editor;
+        ((Task)Call("StartTypingAsync", false)!).GetAwaiter().GetResult();
+        ((Task)Call("StartTypingAsync", false)!).GetAwaiter().GetResult();
+        if (page.Texts.Count != 1 || editor.SelectedText != page.Texts[0])
+            throw new InvalidOperationException("Type must resume existing text without adding duplicate boxes.");
+        Call("ApplyTextFormatting", "Segoe UI", 24d, true, false, NoteTextAlignment.Left, Colors.DarkSlateBlue, true);
+        if (editor.SelectedText is not { Bold: true, FontSize: 24, Alignment: NoteTextAlignment.Left })
+            throw new InvalidOperationException("The typing toolbar must update the selected model's typography.");
+        if (((FrameworkElement)window.FindName("TextToolbar")).Visibility != Visibility.Visible ||
+            ((FrameworkElement)window.FindName("FavouriteToolbar")).Visibility != Visibility.Collapsed ||
+            ((ComboBox)window.FindName("TextSizePicker")).Text != "18")
+            throw new InvalidOperationException("Type must show contextual formatting with a point-based font size.");
+
+        foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
+        {
+            Arrange(content, width, height);
+            var viewport = (FrameworkElement)window.FindName("Viewport");
+            window.ViewModel.Zoom = Math.Min((viewport.ActualWidth - 90) / page.Width, (viewport.ActualHeight - 106) / page.Height);
+            editor.LayoutTransform = new ScaleTransform(window.ViewModel.Zoom, window.ViewModel.Zoom);
+            var fileName = $"ui-preview-typing-{width}.png";
+            SaveImage(output, fileName, RenderElement(content, width, height));
+            VerifyDetached(content, window);
+            reports.Add(MeasureButtons(content, width, height, fileName, "typing", "TypeButton", "AddTextBoxButton", "TextBoldButton", "TextItalicButton"));
+            foreach (var name in new[] { "TextFontPicker", "TextSizePicker", "TextAlignmentPicker" })
+            {
+                var picker = (ComboBox)window.FindName(name);
+                var bounds = picker.TransformToAncestor(content).TransformBounds(new Rect(picker.RenderSize));
+                if (!HasVisibleAncestors(picker) || bounds.Width < 44 || bounds.Height < 44 || bounds.Right > width || bounds.Bottom > height)
+                    throw new InvalidOperationException($"The typing picker {name} must be visible and at least 44 DIP.");
+            }
+        }
+        Call("FinishTyping");
+        if (((FrameworkElement)window.FindName("TextToolbar")).Visibility != Visibility.Collapsed)
+            throw new InvalidOperationException("Finishing typing must restore the writing toolbar.");
+        page.Texts.Clear();
+        editor = new PageEditor(page, repository.GetAssetAsync);
+        host.Child = editor; editors[host] = editor;
+        ((Task)Call("StartTypingAsync", false)!).GetAwaiter().GetResult();
+        if (page.Texts.Count != 1 || editor.SelectedText is not { Text.Length: 0, Bold: true, FontSize: 24 })
+            throw new InvalidOperationException("Type on an empty page must create a blank box with typography only, never copied note content.");
+        editor.LayoutTransform = new ScaleTransform(window.ViewModel.Zoom, window.ViewModel.Zoom);
+        SaveImage(output, "ui-preview-typing-empty.png", RenderElement(content, 1024, 700));
+        reports.Add(MeasureButtons(content, 1024, 700, "ui-preview-typing-empty.png", "typing-empty", "TypeButton", "AddTextBoxButton"));
+        var box = Descendants<TextBox>(editor).Single();
+        box.Text = string.Join("\n", Enumerable.Repeat("More lecture notes — continue on a new page", 70));
+        editor.CommitPendingEdits(); Call("UpdateTextToolbar");
+        if (!editor.HasTextOverflow || !((TextBlock)window.FindName("TypingHint")).Text.StartsWith("Text exceeds"))
+            throw new InvalidOperationException("Overflowing text must remain editable and display a page-boundary warning.");
+        SaveImage(output, "ui-preview-typing-overflow.png", RenderElement(content, 1024, 700));
+        reports.Add(MeasureButtons(content, 1024, 700, "ui-preview-typing-overflow.png", "typing-overflow", "TypeButton", "AddTextBoxButton"));
+        VerifyDetached(content, window);
+        Call("FinishTyping"); editors.Clear(); page.Texts = originalTexts; host.Child = original;
     }
 
     private static void SaveImage(string output, string fileName, BitmapSource bitmap)

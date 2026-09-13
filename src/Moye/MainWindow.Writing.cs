@@ -127,6 +127,7 @@ public partial class MainWindow
 
     private void ConfigureEditor(PageEditor editor)
     {
+        editor.SetTextDefaults(_textDefaults);
         editor.ConfigureWriting(_workingPreset, _preferences.EraserSize, _preferences.EraseHighlightOnly);
         editor.SetTool(_tool, _color, EffectiveWidth());
         editor.InkCanvas.HoldToStraightenEnabled = HoldToStraightenToggle.IsChecked == true;

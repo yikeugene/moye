@@ -1,6 +1,9 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Markup;
@@ -24,6 +27,11 @@ public sealed class PageEditor : Grid
     private readonly StrokePreviewVisual _linePreview = new();
     private readonly DispatcherTimer _editTimer;
     private readonly List<NoteItemFrame> _frames = [];
+    private readonly HashSet<string> _overflowingTexts = [];
+    private readonly HashSet<TextBox> _composingTexts = [];
+    private NoteText _textDefaults = new() { FontFamily = "Segoe UI, Microsoft JhengHei", FontSize = 22, Color = "#FF25334A" };
+    private string? _lastTextId;
+    private bool _suppressTextSelectionNotifications;
     private NoteItemFrame? _selectedItem;
     private bool _loading;
     private bool _inkDirty;
@@ -40,11 +48,15 @@ public sealed class PageEditor : Grid
 
     public NotePage Page { get; private set; }
     public PenInkCanvas InkCanvas => _ink;
+    public NoteText? SelectedText => _selectedItem?.Item as NoteText;
+    public bool HasTextOverflow => SelectedText is { } text && _overflowingTexts.Contains(text.Id);
+    public bool IsTextComposing => _composingTexts.Count > 0;
     public bool IsPenDown => _ink.IsPenDown || _objectPenDown;
-    public bool IsInputActive => IsPenDown || _ink.IsMouseCaptureWithin || _ink.IsStylusCaptureWithin || _frames.Any(f => f.IsMouseCaptureWithin || f.IsStylusCaptureWithin);
+    public bool IsInputActive => IsPenDown || IsTextComposing || _ink.IsMouseCaptureWithin || _ink.IsStylusCaptureWithin || _frames.Any(f => f.IsMouseCaptureWithin || f.IsStylusCaptureWithin);
     public event EventHandler? ContentChanged;
     public event EventHandler? VisualContentChanged;
     public event EventHandler? PenContactChanged;
+    public event EventHandler? TextSelectionChanged;
     public event EventHandler<string>? AssetLoadFailed;
 
     public PageEditor(NotePage page, Func<string, Task<AssetData>> loadAsset)
@@ -120,7 +132,9 @@ public sealed class PageEditor : Grid
             UnsubscribeStrokes(_ink.Strokes);
             _ink.Strokes = page.InkData.Length == 0 ? new StrokeCollection() : new StrokeCollection(new MemoryStream(page.InkData, false));
             SubscribeStrokes(_ink.Strokes);
-            _selectedItem = null;
+            SelectItem(null);
+            _overflowingTexts.Clear();
+            _composingTexts.Clear();
             _items.Children.Clear();
             _frames.Clear();
             foreach (var image in page.Images) AddImageFrame(image);
@@ -172,7 +186,12 @@ public sealed class PageEditor : Grid
         _items.IsHitTestVisible = editObjects;
         foreach (var frame in _frames)
         {
-            if (frame.ItemContent is TextBox text) text.IsReadOnly = !editObjects;
+            if (frame.ItemContent is TextBox text)
+            {
+                text.IsReadOnly = !editObjects;
+                text.VerticalScrollBarVisibility = editObjects ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
+                if (!editObjects) text.ScrollToVerticalOffset(0);
+            }
         }
         if (!editObjects) SelectItem(null);
         Cursor = _tool == InkTool.Hand ? Cursors.Hand : Cursors.Arrow;
@@ -213,41 +232,23 @@ public sealed class PageEditor : Grid
 
     public NoteText AddTextAt(Point location, string text = "")
     {
-        var item = new NoteText
+        CommitPendingEdits();
+        var item = _textDefaults with
         {
+            Id = Guid.NewGuid().ToString("N"),
             X = Math.Clamp(location.X, 0, Math.Max(0, Page.Width - 100)),
             Y = Math.Clamp(location.Y, 0, Math.Max(0, Page.Height - 60)),
-            Text = text, Color = _color.ToString()
+            Text = text
         };
-        item.Width = Math.Min(item.Width, Page.Width - item.X);
+        item.Width = Math.Min(640, Math.Min(Page.Width - item.X, Math.Max(60, Page.Width - item.X - 32)));
         item.Height = Math.Min(item.Height, Page.Height - item.Y);
         Page.Texts.Add(item);
         var frame = AddTextFrame(item);
         _tool = InkTool.Text;
         ApplyTool();
         SelectItem(frame);
-        var box = (TextBox)frame.ItemContent;
-        void FocusInsertedText()
-        {
-            if (_selectedItem != frame || _tool is not (InkTool.Text or InkTool.Select) || !box.IsLoaded) return;
-            box.Focus();
-            Keyboard.Focus(box);
-            box.CaretIndex = box.Text.Length;
-        }
-        // Inserting the frame invalidates layout. WPF cannot focus a TextBox's
-        // TextBoxView until its template/layout has been realized, and the current
-        // routed mouse event can otherwise overwrite an immediate focus request.
-        if (box.IsLoaded) Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusInsertedText));
-        else
-        {
-            RoutedEventHandler? loaded = null;
-            loaded = (_, _) =>
-            {
-                box.Loaded -= loaded;
-                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusInsertedText));
-            };
-            box.Loaded += loaded;
-        }
+        RefreshTextLayout(frame, grow: true);
+        RequestTextFocus(frame, atEnd: true);
         MarkContentDirty();
         FlushChanges();
         return item;
@@ -255,11 +256,134 @@ public sealed class PageEditor : Grid
 
     public void AddTextAt(double x, double y) => AddTextAt(new Point(x, y));
 
+    public NoteText BeginTyping()
+    {
+        CommitPendingEdits();
+        if (SelectedText is not null) { FocusSelectedText(); return SelectedText!; }
+        var recent = Page.Texts.FirstOrDefault(text => text.Id == _lastTextId) ?? Page.Texts.LastOrDefault();
+        if (recent is null) return AddTextAt(new Point(72, 72));
+        _tool = InkTool.Text;
+        ApplyTool();
+        SelectItem(_frames.First(frame => ReferenceEquals(frame.Item, recent)));
+        FocusSelectedText();
+        return recent;
+    }
+
+    public void FocusSelectedText()
+    {
+        if (_selectedItem?.ItemContent is not TextBox) return;
+        _tool = InkTool.Text;
+        ApplyTool();
+        RequestTextFocus(_selectedItem, atEnd: false);
+    }
+
+    /// <summary>Only typography is copied; notebook content and pen settings are independent.</summary>
+    public void SetTextDefaults(NoteText template)
+    {
+        _textDefaults = new NoteText
+        {
+            FontFamily = string.IsNullOrWhiteSpace(template.FontFamily) ? _textDefaults.FontFamily : template.FontFamily,
+            FontSize = double.IsFinite(template.FontSize) ? Math.Clamp(template.FontSize, 6, 128) : _textDefaults.FontSize,
+            Bold = template.Bold, Italic = template.Italic,
+            Alignment = Enum.IsDefined(template.Alignment) ? template.Alignment : NoteTextAlignment.Left,
+            Color = BrushFrom(template.Color) is SolidColorBrush brush ? brush.Color.ToString() : "#FF25334A"
+        };
+    }
+
+    /// <summary>Formats the whole text box without replacing its native text/undo buffer.</summary>
+    public void ApplyTextStyle(string? fontFamily = null, double? fontSize = null, bool? bold = null,
+        bool? italic = null, NoteTextAlignment? alignment = null, Color? color = null, bool restoreFocus = true)
+    {
+        if (_selectedItem?.Item is not NoteText text || _selectedItem.ItemContent is not TextBox box) return;
+        var family = string.IsNullOrWhiteSpace(fontFamily) ? text.FontFamily : fontFamily;
+        var size = fontSize is { } value && double.IsFinite(value) ? Math.Clamp(value, 6, 128) : text.FontSize;
+        var align = alignment is { } candidate && Enum.IsDefined(candidate) ? candidate : text.Alignment;
+        var colorText = color?.ToString() ?? text.Color;
+        var newBold = bold ?? text.Bold;
+        var newItalic = italic ?? text.Italic;
+        var selectionStart = box.SelectionStart;
+        var selectionLength = box.SelectionLength;
+        // Resolve the font before mutating the model, so an invalid family cannot
+        // leave an edit partially applied.
+        var resolvedFamily = new FontFamily(family);
+        if (text.FontFamily != family || text.FontSize != size || text.Bold != newBold || text.Italic != newItalic || text.Alignment != align || text.Color != colorText)
+        {
+            text.FontFamily = family; text.FontSize = size; text.Bold = newBold;
+            text.Italic = newItalic; text.Alignment = align; text.Color = colorText;
+            box.FontFamily = resolvedFamily; box.FontSize = size;
+            box.FontWeight = text.Bold ? FontWeights.Bold : FontWeights.Normal;
+            box.FontStyle = text.Italic ? FontStyles.Italic : FontStyles.Normal;
+            box.TextAlignment = ToTextAlignment(align);
+            box.Foreground = BrushFrom(colorText);
+            System.Windows.Documents.Block.SetLineHeight(box, size * 1.4);
+            RefreshTextLayout(_selectedItem, grow: true);
+            MarkContentDirty();
+            FlushChanges();
+            NotifyTextSelectionChanged();
+        }
+        box.Select(selectionStart, selectionLength);
+        if (restoreFocus) RequestTextFocus(_selectedItem, atEnd: false);
+    }
+
+    public void ToggleTextList(bool numbered)
+    {
+        if (_selectedItem?.ItemContent is not TextBox box) return;
+        ApplyTextEdit(box, TextEditing.ToggleList(box.Text, box.SelectionStart, box.SelectionLength, numbered));
+        RequestTextFocus(_selectedItem, atEnd: false);
+    }
+
+    private void ApplyTextEdit(TextBox box, TextEditing.Edit edit)
+    {
+        // SelectedText inside one change block participates in native Ctrl+Z;
+        // assigning Text would discard that history and composition state.
+        box.BeginChange();
+        try
+        {
+            box.Select(edit.Start, edit.Length);
+            box.SelectedText = edit.Replacement;
+            box.Select(edit.SelectionStart, edit.SelectionLength);
+        }
+        finally { box.EndChange(); }
+        FlushChanges();
+    }
+
+    private void RequestTextFocus(NoteItemFrame frame, bool atEnd)
+    {
+        var box = (TextBox)frame.ItemContent;
+        var start = atEnd ? box.Text.Length : box.SelectionStart;
+        var length = atEnd ? 0 : box.SelectionLength;
+        box.Select(start, length);
+        void FocusText()
+        {
+            if (_selectedItem != frame || _tool is not (InkTool.Text or InkTool.Select) || !box.IsLoaded) return;
+            box.Focus();
+            Keyboard.Focus(box);
+            // The selection is retained by TextBox across focus changes. Do not
+            // restore a stale saved caret after intervening keyboard input.
+        }
+        if (box.IsLoaded)
+        {
+            if (box.IsKeyboardFocusWithin) return;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusText));
+        }
+        else
+        {
+            RoutedEventHandler? loaded = null;
+            loaded = (_, _) =>
+            {
+                box.Loaded -= loaded;
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusText));
+            };
+            box.Loaded += loaded;
+        }
+    }
+
     public void DeleteSelection()
     {
         if (_selectedItem is not null)
         {
-            if (_selectedItem.Item is NoteText text) Page.Texts.Remove(text);
+            if (_selectedItem.Item is NoteText text) { Page.Texts.Remove(text); _overflowingTexts.Remove(text.Id); }
+            if (_selectedItem.ItemContent is TextBox box) _composingTexts.Remove(box);
             if (_selectedItem.Item is NoteImage image) Page.Images.Remove(image);
             _items.Children.Remove(_selectedItem);
             _frames.Remove(_selectedItem);
@@ -370,11 +494,10 @@ public sealed class PageEditor : Grid
 
     public void ApplyColorToSelection(Color color)
     {
-        if (_selectedItem?.Item is NoteText text && _selectedItem.ItemContent is TextBox box)
+        if (SelectedText is not null)
         {
-            text.Color = color.ToString();
-            box.Foreground = new SolidColorBrush(color);
-            MarkContentDirty();
+            ApplyTextStyle(color: color);
+            return;
         }
         else
         {
@@ -458,26 +581,120 @@ public sealed class PageEditor : Grid
         var box = new TextBox
         {
             Text = text.Text, FontFamily = new FontFamily(text.FontFamily), FontSize = text.FontSize,
+            FontWeight = text.Bold ? FontWeights.Bold : FontWeights.Normal,
+            FontStyle = text.Italic ? FontStyles.Italic : FontStyles.Normal,
+            TextAlignment = ToTextAlignment(text.Alignment),
             Foreground = BrushFrom(text.Color), Background = Brushes.Transparent,
             BorderThickness = new Thickness(0), Padding = new Thickness(0),
             AcceptsReturn = true, AcceptsTab = false, TextWrapping = TextWrapping.Wrap,
             VerticalContentAlignment = VerticalAlignment.Top,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Language = XmlLanguage.GetLanguage("zh-HK")
         };
         System.Windows.Documents.Block.SetLineHeight(box, text.FontSize * 1.4);
         System.Windows.Documents.Block.SetLineStackingStrategy(box, LineStackingStrategy.BlockLineHeight);
         InputMethod.SetIsInputMethodEnabled(box, true);
+        box.Resources[typeof(ScrollViewer)] = TextScrollViewerStyle();
+        // Windows themes add their own margins around the content host even
+        // when TextBox.Padding is zero. Give the native editor a host whose
+        // origin and available width exactly match its persisted page rectangle.
+        var host = new FrameworkElementFactory(typeof(ScrollViewer), "PART_ContentHost");
+        host.SetValue(FocusableProperty, false);
+        host.SetValue(MarginProperty, new Thickness(0));
+        host.SetValue(Control.PaddingProperty, new Thickness(0));
+        host.SetBinding(ScrollViewer.HorizontalScrollBarVisibilityProperty, TemplateBinding("HorizontalScrollBarVisibility"));
+        host.SetBinding(ScrollViewer.VerticalScrollBarVisibilityProperty, TemplateBinding("VerticalScrollBarVisibility"));
+        box.Template = new ControlTemplate(typeof(TextBox)) { VisualTree = host };
         var frame = AddFrame(text, box, text.X, text.Y, text.Width, text.Height);
         box.TextChanged += (_, _) =>
         {
             if (_loading || text.Text == box.Text) return;
             text.Text = box.Text;
+            RefreshTextLayout(frame, grow: true);
             MarkContentDirty();
         };
-        box.LostKeyboardFocus += (_, _) => FlushChanges();
+        box.GotKeyboardFocus += (_, _) => { if (!box.IsReadOnly) SelectItem(frame); };
+        box.LostKeyboardFocus += (_, _) => { _composingTexts.Remove(box); FlushChanges(); };
+        TextCompositionManager.AddPreviewTextInputStartHandler(box, (_, _) => _composingTexts.Add(box));
+        TextCompositionManager.AddPreviewTextInputUpdateHandler(box, (_, _) => _composingTexts.Add(box));
+        box.PreviewTextInput += (_, _) => _composingTexts.Remove(box);
+        box.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None || box.IsReadOnly || _composingTexts.Contains(box)) return;
+            var edit = TextEditing.ContinueList(box.Text, box.SelectionStart, box.SelectionLength);
+            if (edit is null) return;
+            ApplyTextEdit(box, edit);
+            e.Handled = true;
+        };
+        RefreshTextLayout(frame, grow: false);
         return frame;
+    }
+
+    private static TextAlignment ToTextAlignment(NoteTextAlignment alignment) => alignment switch
+    {
+        NoteTextAlignment.Center => TextAlignment.Center,
+        NoteTextAlignment.Right => TextAlignment.Right,
+        _ => TextAlignment.Left
+    };
+
+    private static Style TextScrollViewerStyle()
+    {
+        // Overlay the scrollbar instead of subtracting its width from the fixed
+        // page coordinates used by the PDF renderer. Keep WPF's named parts so
+        // native caret scrolling, keyboard navigation and IME remain intact.
+        var grid = new FrameworkElementFactory(typeof(Grid));
+        var presenter = new FrameworkElementFactory(typeof(ScrollContentPresenter), "PART_ScrollContentPresenter");
+        presenter.SetBinding(ContentPresenter.ContentProperty, TemplateBinding("Content"));
+        presenter.SetBinding(ContentPresenter.ContentTemplateProperty, TemplateBinding("ContentTemplate"));
+        presenter.SetBinding(ScrollContentPresenter.CanContentScrollProperty, TemplateBinding("CanContentScroll"));
+        grid.AppendChild(presenter);
+        var scrollbar = new FrameworkElementFactory(typeof(ScrollBar), "PART_VerticalScrollBar");
+        scrollbar.SetValue(ScrollBar.OrientationProperty, Orientation.Vertical);
+        scrollbar.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
+        scrollbar.SetValue(FrameworkElement.WidthProperty, SystemParameters.VerticalScrollBarWidth);
+        scrollbar.SetBinding(RangeBase.MaximumProperty, TemplateBinding("ScrollableHeight"));
+        scrollbar.SetBinding(RangeBase.ValueProperty, TemplateBinding("VerticalOffset"));
+        scrollbar.SetBinding(ScrollBar.ViewportSizeProperty, TemplateBinding("ViewportHeight"));
+        scrollbar.SetBinding(UIElement.VisibilityProperty, TemplateBinding("ComputedVerticalScrollBarVisibility"));
+        grid.AppendChild(scrollbar);
+        return new Style(typeof(ScrollViewer))
+        {
+            Setters = { new Setter(Control.TemplateProperty, new ControlTemplate(typeof(ScrollViewer)) { VisualTree = grid }) }
+        };
+    }
+
+    private static Binding TemplateBinding(string path) => new(path) { RelativeSource = RelativeSource.TemplatedParent, Mode = BindingMode.OneWay };
+
+    private void RefreshTextLayout(NoteItemFrame frame, bool grow)
+    {
+        if (frame.Item is not NoteText text || frame.ItemContent is not TextBox box) return;
+        // Use the same typeface, wrapping width and 1.4 line height as PDF export.
+        // A final blank line still needs room for the insertion caret.
+        var content = box.Text.Length == 0 || box.Text.EndsWith('\n') || box.Text.EndsWith('\r') ? box.Text + " " : box.Text;
+        var formatted = new FormattedText(content, CultureInfo.GetCultureInfo("zh-HK"), FlowDirection.LeftToRight,
+            new Typeface(box.FontFamily, box.FontStyle, box.FontWeight, box.FontStretch), box.FontSize, box.Foreground,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip)
+        {
+            MaxTextWidth = NoteTextLayout.ContentWidth(text.Width),
+            TextAlignment = box.TextAlignment,
+            LineHeight = box.FontSize * 1.4
+        };
+        var requiredHeight = Math.Ceiling(formatted.Height);
+        var availableHeight = Math.Max(1, Page.Height - text.Y);
+        if (grow)
+        {
+            var height = Math.Min(availableHeight, Math.Max(text.Height, requiredHeight));
+            if (Math.Abs(text.Height - height) > .01)
+            {
+                text.Height = height;
+                frame.Height = height;
+                MarkContentDirty();
+            }
+        }
+        var overflow = requiredHeight > text.Height + .5;
+        var changed = overflow ? _overflowingTexts.Add(text.Id) : _overflowingTexts.Remove(text.Id);
+        if (changed && ReferenceEquals(SelectedText, text)) NotifyTextSelectionChanged();
     }
 
     private NoteItemFrame AddImageFrame(NoteImage image)
@@ -538,6 +755,7 @@ public sealed class PageEditor : Grid
             {
                 text.X = Canvas.GetLeft(frame); text.Y = Canvas.GetTop(frame);
                 text.Width = frame.Width; text.Height = frame.Height;
+                RefreshTextLayout(frame, grow: false);
             }
             else if (item is NoteImage image)
             {
@@ -553,9 +771,17 @@ public sealed class PageEditor : Grid
     private void SelectItem(NoteItemFrame? frame)
     {
         if (_selectedItem == frame) return;
+        var previousText = SelectedText;
         _selectedItem?.SetSelected(false);
         _selectedItem = frame;
         _selectedItem?.SetSelected(true);
+        if (SelectedText is { } text) _lastTextId = text.Id;
+        if (previousText is not null || SelectedText is not null) NotifyTextSelectionChanged();
+    }
+
+    private void NotifyTextSelectionChanged()
+    {
+        if (!_suppressTextSelectionNotifications) TextSelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void SetObjectPenContact(bool value)
@@ -581,10 +807,18 @@ public sealed class PageEditor : Grid
         CommitPendingEdits();
         var selected = _selectedItem;
         var strokes = _ink.GetSelectedStrokes();
+        var textViews = _frames.Select(frame => frame.ItemContent).OfType<TextBox>()
+            .Select(box => (Box: box, Offset: box.VerticalOffset, Visibility: box.VerticalScrollBarVisibility)).ToArray();
+        _suppressTextSelectionNotifications = true;
         SelectItem(null);
         if (strokes.Count > 0) _ink.Select(new StrokeCollection());
         try
         {
+            foreach (var view in textViews)
+            {
+                view.Box.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+                view.Box.ScrollToVerticalOffset(0);
+            }
             return _lastThumbnail = RenderThumbnail(width);
         }
         finally
@@ -592,6 +826,12 @@ public sealed class PageEditor : Grid
             ApplyTool();
             SelectItem(selected);
             if (_tool == InkTool.Lasso) _ink.Select(strokes);
+            foreach (var view in textViews)
+            {
+                view.Box.VerticalScrollBarVisibility = view.Visibility;
+                view.Box.ScrollToVerticalOffset(view.Offset);
+            }
+            _suppressTextSelectionNotifications = false;
         }
     }
 
