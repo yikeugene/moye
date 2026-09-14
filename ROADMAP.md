@@ -4,9 +4,9 @@
 
 Moye should support a complete university workflow: write during a lecture, annotate course material, organize knowledge, and revisit it without losing time or notes. This roadmap preserves all 41 requested feature areas. It is a development plan, not a claim that every listed feature is available.
 
-This status reflects **Moye 1.5.0**, reviewed on **2026-09-14**. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
+This status reflects **Moye 1.6.0**, reviewed on **2026-09-14**. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
 
-A local, unreleased typing update adds an explicit Type action, contextual text controls and whole-box formatting without changing the 1.5.0 version. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; it is not a new published release.
+Version 1.6.0 adds an explicit Type action, contextual text controls and whole-box formatting. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; publication does not mark those outstanding checks complete.
 
 ## Status and evidence
 
@@ -23,7 +23,7 @@ Code and tests provide the following evidence:
 | Draw-and-hold recognition and native commit lifecycle | [HoldToStraightenSession](src/Moye/Controls/HoldToStraightenSession.cs), [gesture tests](tests/Moye.Tests/HoldToStraightenTests.cs), [lifecycle tests](tests/Moye.Tests/StraightInkLifecycleTests.cs) |
 | Library, pages, history, navigation and shortcuts | [MainViewModel](src/Moye/ViewModels/MainViewModel.cs), [NotebookHistory](src/Moye/ViewModels/NotebookHistory.cs), [MainWindow](src/Moye/MainWindow.xaml.cs), [library tests](tests/Moye.Tests/LibraryTests.cs), [history tests](tests/Moye.Tests/HistoryTests.cs) |
 | Paper, text, images and persistent document fields | [DocumentModels](src/Moye/Models/DocumentModels.cs), [PaperVisual](src/Moye/Controls/PaperVisual.cs), [PaperTemplatePicker](src/Moye/Controls/PaperTemplatePicker.cs), [NoteItemFrame](src/Moye/Controls/NoteItemFrame.cs) |
-| Local typing UI, whole-box typography and plain line prefixes | [typing UI](src/Moye/MainWindow.Typing.cs), [PageEditor](src/Moye/Controls/PageEditor.cs), [text editing helpers](src/Moye/Controls/TextEditing.cs), [typing tests](tests/Moye.Tests/TypingTests.cs), [text persistence tests](tests/Moye.Tests/TextPersistenceTests.cs) |
+| Typing UI, whole-box typography and plain line prefixes | [typing UI](src/Moye/MainWindow.Typing.cs), [PageEditor](src/Moye/Controls/PageEditor.cs), [text editing helpers](src/Moye/Controls/TextEditing.cs), [typing tests](tests/Moye.Tests/TypingTests.cs), [text persistence tests](tests/Moye.Tests/TextPersistenceTests.cs) |
 | Autosave, transaction integrity and recovery after write failure | [AutosaveCoordinator](src/Moye/Services/AutosaveCoordinator.cs), [SQLite repository](src/Moye/Services/SqliteNotebookRepository.cs), [storage tests](tests/Moye.Tests/StorageTests.cs) |
 | Persistent writing presets and settings recovery | [WritingPreferences](src/Moye/Models/WritingPreferences.cs), [WritingPreferencesStore](src/Moye/Services/WritingPreferencesStore.cs), [preset manager](src/Moye/Controls/PresetManagerDialog.cs), [preference tests](tests/Moye.Tests/WritingPreferencesTests.cs) |
 | Preset application, editable ink clipboard, selection width, eraser filtering and thumbnail tool preservation | [writing UI](src/Moye/MainWindow.Writing.cs), [writing workflow tests](tests/Moye.Tests/WritingWorkflowTests.cs) |

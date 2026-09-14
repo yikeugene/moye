@@ -2,11 +2,11 @@
 
 An offline handwriting notebook for Windows 11. Moye combines pressure-sensitive ink, PDF annotation, text boxes, and images in a native WPF app designed for a touchscreen laptop and an active pen.
 
-[Download Windows x64](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.5.0-win-x64.zip) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Roadmap](ROADMAP.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
+[Download Windows x64](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.6.0-win-x64.zip) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Roadmap](ROADMAP.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
 
 ## Get started
 
-1. Download `Moye-1.5.0-win-x64.zip` from [Releases](https://github.com/yikeugene/moye/releases).
+1. Download `Moye-1.6.0-win-x64.zip` from [Releases](https://github.com/yikeugene/moye/releases).
 2. Extract the **entire** ZIP, then open `Moye.exe`. The portable package includes the .NET runtime; no separate .NET installation is needed.
 3. On **Your Notebooks**, open a notebook cover or choose **New Notebook** and select Blank, Ruled, Grid, Dot Grid, Cornell or Graph paper. Choose a favorite pen and start writing. Open **Presets…** to customize your tools, or **Pen Settings** to change the current color and width. A mouse works too.
 
@@ -33,9 +33,9 @@ Paper previews, page backgrounds and exported PDFs use the same template geometr
 
 With Pen or Highlighter, pause at a line endpoint for about 0.65 seconds to straighten it, drag to adjust, then lift. **Pen Settings → Draw and Hold** toggles this behavior and remembers the choice. **Eraser Settings** offers Pixel or Stroke erasing, a **12–120 DIP** size control, and **Erase highlighter only**.
 
-## Typing notes — local development
+## Typing notes
 
-The current development tree adds a visible **Type** button and a text-formatting bar. These improvements remain local, unreleased work on **1.5.0**; the version has not been increased.
+Moye **1.6.0** adds a visible **Type** button and a text-formatting bar for typed notes alongside handwriting.
 
 Click **Type** to start or continue a text box, then type directly. Click elsewhere on the page or use **＋ Text box** for another box. The text bar offers font family, size, bold, italic, color, alignment, and plain bullet or numbered line prefixes. Formatting applies to the **entire text box**, including when only a word is selected; this is not per-word rich text. Use `Ctrl+B` / `Ctrl+I` for bold and italic, and `Ctrl+Enter` or `Esc` to finish typing and return to Pen.
 
@@ -45,7 +45,7 @@ Text boxes grow down to the page boundary and scroll internally when their conte
 
 Notes are stored in `%LOCALAPPDATA%\Moye\moye.db`, with SQLite journal files alongside it. Moving the app folder does not move your notebooks. Use **More → Back Up All Notebooks** to create a portable `.moye` backup. Restoring creates new copies and does not overwrite existing notebooks.
 
-Backups include editable ink, pressure, text, images, page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. Version **1.5.0** keeps the existing database and backup formats.
+Backups include editable ink, pressure, text, images, page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. Version **1.6.0** keeps existing notebooks and `.moye` backups compatible and preserves text-box formatting when saving and restoring.
 
 The [roadmap](ROADMAP.md) describes **41 feature areas**, including future work. Version 1.5.0 delivers the first slice of that plan: persistent tools, faster editing shortcuts and selected reliability improvements. The complete roadmap is not implemented. Infinite canvas is planned; the current editor uses fixed pages. Cloud sync, recording, handwriting recognition and AI features are also unavailable.
 
@@ -76,7 +76,7 @@ For a separate library, use `Moye.exe --data-dir .\sample-library`. The app keep
 
 ## Verification and limitations
 
-The local automated run on **2026-09-14** passed **178 tests and 21 detached UI scenes**. The suite covers notebooks, SQLite storage, autosave recovery, editable backups, ink operations, history, writing-preference persistence, typing helpers and PDF import/export. Detached WPF layout checks cover the notebook home, paper templates, settings, editor and text controls. Automated checks alone do not establish successful live pen, touch, or IME interaction. See [release notes](docs/RELEASE_NOTES_1.5.0.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for published-release validation; the typing update above remains local work.
+The local automated run on **2026-09-14** passed **178 tests and 21 detached UI scenes**. The suite covers notebooks, SQLite storage, autosave recovery, editable backups, ink operations, history, writing-preference persistence, typing helpers and PDF import/export. Detached WPF layout checks cover the notebook home, paper templates, settings, editor and text controls. Automated checks alone do not establish successful live pen, touch, or IME interaction. See [release notes](docs/RELEASE_NOTES_1.6.0.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for release validation.
 
 A live Windows desktop check on **2026-09-14**, using an isolated sample notebook, verified Type creating/resuming one box, Chinese IME composition and candidate selection (`t`, then Space, committed `他`), switching to English input, `Ctrl+B`, setting 24 pt and continuing to type after Enter, bullet insertion, Enter list continuation, native `Ctrl+Z` undo of that continuation, and `Ctrl+Enter` returning to Pen. The packaged app reopened the saved text and formatting, accepted `T` from the page workspace with the Chinese IME active, and cancelled a short composition and an uncommitted font-size change with `Esc` while keeping Type mode.
 

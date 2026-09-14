@@ -1,8 +1,8 @@
 # Moye user guide
 
-This guide describes the English interface in Moye 1.5.0 for Windows 11 x64.
+This guide describes the English interface in Moye 1.6.0 for Windows 11 x64.
 
-The **Type** button and text-formatting workflow below describe a local development update. They have not been published as a new release; the app version remains 1.5.0.
+Version 1.6.0 adds the **Type** button and text-formatting workflow described below.
 
 ## Notebooks and pages
 
@@ -111,7 +111,7 @@ Encrypted documents, interactive forms, digital signatures, and internal or cros
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Version **1.5.0** uses the existing library and backup formats.
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Version **1.6.0** keeps existing notebooks and `.moye` backups compatible and preserves text-box formatting when saving and restoring.
 
 Writing preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`. This file contains presets and writing settings, and is **not included in `.moye` backups**. For a library started with `--data-dir`, both the database and preferences stay in that selected directory. A damaged settings file is preserved before defaults are offered; an unreadable or unsupported-version file is protected from replacement. A writing-settings warning offers details and retry when available. When an existing preferences file cannot be read or belongs to a newer version, tool changes apply to the current session only; notebooks still save and the app can close normally. Restart after resolving that file. A later write failure retains pending settings for retry.
 
