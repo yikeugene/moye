@@ -2,11 +2,11 @@
 
 An offline handwriting notebook for Windows 11. Moye combines pressure-sensitive ink, PDF annotation, text boxes, and images in a native WPF app designed for a touchscreen laptop and an active pen.
 
-[Download Windows x64](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.6.0-win-x64.zip) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Roadmap](ROADMAP.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
+[Download Windows x64](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.6.1-win-x64.zip) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Roadmap](ROADMAP.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
 
 ## Get started
 
-1. Download `Moye-1.6.0-win-x64.zip` from [Releases](https://github.com/yikeugene/moye/releases).
+1. Download `Moye-1.6.1-win-x64.zip` from [Releases](https://github.com/yikeugene/moye/releases).
 2. Extract the **entire** ZIP, then open `Moye.exe`. The portable package includes the .NET runtime; no separate .NET installation is needed.
 3. On **Your Notebooks**, open a notebook cover or choose **New Notebook** and select Blank, Ruled, Grid, Dot Grid, Cornell or Graph paper. Choose a favorite pen and start writing. Open **Presets…** to customize your tools, or **Pen Settings** to change the current color and width. A mouse works too.
 
@@ -14,7 +14,7 @@ Moye requires Windows 11 x64. An active pen compatible with Windows Ink is neede
 
 ## Features
 
-- Notebooks with titles and categories; search by either. Add, duplicate, reorder, and delete pages.
+- Notebooks with titles and categories; search by either. Delete a notebook from its home card or **More → Delete Notebook…**, with confirmation. Add, duplicate, reorder, and delete pages.
 - Pressure-sensitive pen and highlighter with draw-and-hold straight lines, Pixel and Stroke erasers, and lasso selection. Move, resize, recolor, duplicate, or delete selected ink.
 - Persistent named pen presets, with favorite buttons, drag-to-reorder and `1`–`9` shortcuts. Rename, duplicate, delete or hide favorites; adjust pen opacity, pressure sensitivity and smoothing.
 - Independent eraser size, highlighter-only erasing, and a remembered mode for the pen's tail eraser.
@@ -45,7 +45,7 @@ Text boxes grow down to the page boundary and scroll internally when their conte
 
 Notes are stored in `%LOCALAPPDATA%\Moye\moye.db`, with SQLite journal files alongside it. Moving the app folder does not move your notebooks. Use **More → Back Up All Notebooks** to create a portable `.moye` backup. Restoring creates new copies and does not overwrite existing notebooks.
 
-Backups include editable ink, pressure, text, images, page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. Version **1.6.0** keeps existing notebooks and `.moye` backups compatible and preserves text-box formatting when saving and restoring.
+Backups include editable ink, pressure, text, images, page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. Version **1.6.1** keeps existing notebooks and `.moye` backups compatible and preserves text-box formatting when saving and restoring.
 
 The [roadmap](ROADMAP.md) describes **41 feature areas**, including future work. Version 1.5.0 delivers the first slice of that plan: persistent tools, faster editing shortcuts and selected reliability improvements. The complete roadmap is not implemented. Infinite canvas is planned; the current editor uses fixed pages. Cloud sync, recording, handwriting recognition and AI features are also unavailable.
 
@@ -76,7 +76,7 @@ For a separate library, use `Moye.exe --data-dir .\sample-library`. The app keep
 
 ## Verification and limitations
 
-The local automated run on **2026-09-14** passed **178 tests and 21 detached UI scenes**. The suite covers notebooks, SQLite storage, autosave recovery, editable backups, ink operations, history, writing-preference persistence, typing helpers and PDF import/export. Detached WPF layout checks cover the notebook home, paper templates, settings, editor and text controls. Automated checks alone do not establish successful live pen, touch, or IME interaction. See [release notes](docs/RELEASE_NOTES_1.6.0.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for release validation.
+The local automated run on **2026-09-14** passed **184 tests and 21 detached UI scenes**. The suite covers notebooks, deletion and failed-save recovery, SQLite storage, editable backups, ink operations, history, writing-preference persistence, typing helpers and PDF import/export. Detached WPF layout checks cover the notebook home, paper templates, settings, editor and text controls. Automated checks alone do not establish successful live pen, touch, or IME interaction. See [release notes](docs/RELEASE_NOTES_1.6.1.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for release validation.
 
 A live Windows desktop check on **2026-09-14**, using an isolated sample notebook, verified Type creating/resuming one box, Chinese IME composition and candidate selection (`t`, then Space, committed `他`), switching to English input, `Ctrl+B`, setting 24 pt and continuing to type after Enter, bullet insertion, Enter list continuation, native `Ctrl+Z` undo of that continuation, and `Ctrl+Enter` returning to Pen. The packaged app reopened the saved text and formatting, accepted `T` from the page workspace with the Chinese IME active, and cancelled a short composition and an uncommitted font-size change with `Esc` while keeping Type mode.
 

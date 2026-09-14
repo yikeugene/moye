@@ -1,6 +1,6 @@
 # Moye user guide
 
-This guide describes the English interface in Moye 1.6.0 for Windows 11 x64.
+This guide describes the English interface in Moye 1.6.1 for Windows 11 x64.
 
 Version 1.6.0 adds the **Type** button and text-formatting workflow described below.
 
@@ -26,6 +26,8 @@ Click **All Notes** to save your changes and return home. You can also switch no
 Select a page thumbnail, then use **Insert → Add Page**, or **Add Page** beneath the thumbnails. Choose a paper preview and click **Add Page** to insert after the current page. The picker starts with the current ordinary page's style, or Ruled when viewing a PDF. The **Page Options** menu above the thumbnails lets you duplicate, move, or delete the selected page. Page deletion can be undone. Deleting the last page leaves a new blank page.
 
 Choose **Page Options → Paper Style**, select a visual template, and click **Apply Paper** to change an existing page. Your writing, text and images stay in place. This changes only the current ordinary page; PDF pages keep their original background.
+
+To delete a notebook, click **Delete Notebook…** beneath its cover on the home screen, or open it and choose **More → Delete Notebook…**. The confirmation names the notebook and defaults to **No**. Choosing **Yes** deletes that notebook and all its pages; this cannot be undone. Back it up first if you need a copy. Deleting the open notebook returns you to the home screen. If saving or deletion fails, the notebook stays available so you can retry.
 
 ## Pen presets
 
@@ -111,7 +113,7 @@ Encrypted documents, interactive forms, digital signatures, and internal or cros
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Version **1.6.0** keeps existing notebooks and `.moye` backups compatible and preserves text-box formatting when saving and restoring.
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Version **1.6.1** keeps existing notebooks and `.moye` backups compatible and preserves text-box formatting when saving and restoring.
 
 Writing preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`. This file contains presets and writing settings, and is **not included in `.moye` backups**. For a library started with `--data-dir`, both the database and preferences stay in that selected directory. A damaged settings file is preserved before defaults are offered; an unreadable or unsupported-version file is protected from replacement. A writing-settings warning offers details and retry when available. When an existing preferences file cannot be read or belongs to a newer version, tool changes apply to the current session only; notebooks still save and the app can close normally. Restart after resolving that file. A later write failure retains pending settings for retry.
 

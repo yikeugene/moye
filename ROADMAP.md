@@ -4,7 +4,7 @@
 
 Moye should support a complete university workflow: write during a lecture, annotate course material, organize knowledge, and revisit it without losing time or notes. This roadmap preserves all 41 requested feature areas. It is a development plan, not a claim that every listed feature is available.
 
-This status reflects **Moye 1.6.0**, reviewed on **2026-09-14**. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
+This status reflects **Moye 1.6.1**, reviewed on **2026-09-14**. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
 
 Version 1.6.0 adds an explicit Type action, contextual text controls and whole-box formatting. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; publication does not mark those outstanding checks complete.
 
@@ -33,6 +33,8 @@ Code and tests provide the following evidence:
 The linked public test sources describe reproducible automated coverage. Tests and detached layout renders do not prove current hardware latency, palm rejection, high-refresh rendering, sleep recovery, or live IME composition. Benchmark numbers from small synthetic fixtures must not be presented as guarantees for scanned textbooks or long lectures.
 
 ## First writing-workflow milestone
+
+Version 1.6.1 adds notebook deletion from home cards and the editor's More menu, with confirmation. Tests cover failed-save/delete recovery, pending-save ordering, and clearing the deleted notebook's history. Earlier isolated desktop checks on 2026-09-14 covered canceling and confirming deletion from both entry points. A recycle bin remains outside this implementation.
 
 - [x] Persistent named pen/highlighter presets with rename, duplicate, delete, reorder and favorite visibility; favorite preset buttons support drag reordering.
 - [x] Per-preset pen opacity, pressure sensitivity and smoothing, plus exact preset widths. Highlighters retain native 50% compositing.

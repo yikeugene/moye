@@ -10,6 +10,7 @@ public sealed class NotebookHistory
     private NotebookDocument? _current;
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
+    public void Clear() { _undo.Clear(); _redo.Clear(); _current = null; }
     public void Reset(NotebookDocument document) { _undo.Clear(); _redo.Clear(); _current = document.Snapshot(); }
     public void Record(NotebookDocument document)
     {

@@ -198,14 +198,143 @@ public sealed class LibraryTests
         Assert.Single(viewModel.Notebooks);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeletingCurrentNotebookClearsEditorHistoryAndCannotBeResurrected(bool fromHome)
+    {
+        using var directory = new StorageTestDirectory();
+        using var viewModel = new MainViewModel(new SqliteNotebookRepository(directory.DatabasePath));
+        await viewModel.CreateAsync("Delete me", "My Notes");
+        var id = viewModel.Document!.Id;
+        viewModel.AddPage();
+        viewModel.Rename("Delete latest version", "My Notes");
+        viewModel.Undo(); // Both undo and redo contain notebook snapshots.
+        if (fromHome) await viewModel.ReturnToLibraryAsync();
+
+        await viewModel.DeleteNotebookAsync(id);
+
+        Assert.True(viewModel.IsLibraryVisible);
+        Assert.Null(viewModel.Document);
+        Assert.Empty(viewModel.Pages);
+        Assert.Null(viewModel.SelectedPage);
+        Assert.False(viewModel.CanUndo);
+        Assert.False(viewModel.CanRedo);
+        Assert.False(viewModel.HasNotebooks);
+        Assert.False(viewModel.HasVisibleNotebooks);
+        Assert.Equal("Your next idea starts here", viewModel.EmptyLibraryTitle);
+        viewModel.Undo(); viewModel.Redo(); viewModel.Changed();
+        await viewModel.Autosave.RetryAsync();
+        await viewModel.ReturnToLibraryAsync();
+        Assert.False(viewModel.Autosave.IsDirty);
+        using var reopened = new SqliteNotebookRepository(directory.DatabasePath);
+        Assert.Null(await reopened.LoadAsync(id));
+        Assert.Empty(await reopened.ListAsync());
+        await viewModel.CreateAsync("Next notebook", "My Notes");
+        Assert.True(viewModel.IsEditorVisible);
+        Assert.Single(viewModel.Notebooks);
+        Assert.False(viewModel.CanUndo);
+    }
+
+    [Fact]
+    public async Task DeletingFilteredNotebookPreservesOtherNotebookAndUpdatesCounts()
+    {
+        using var directory = new StorageTestDirectory();
+        using var viewModel = new MainViewModel(new SqliteNotebookRepository(directory.DatabasePath));
+        await viewModel.CreateAsync("Delete me", "Archive");
+        var id = viewModel.Document!.Id;
+        await viewModel.CreateAsync("Keep me", "Work");
+        var retained = viewModel.Document;
+        viewModel.Rename("Keep my latest edits", "Work");
+        viewModel.Search = "Archive";
+
+        await viewModel.DeleteNotebookAsync(id);
+
+        Assert.Same(retained, viewModel.Document);
+        Assert.True(viewModel.IsEditorVisible);
+        Assert.True(viewModel.CanUndo);
+        Assert.True(viewModel.HasNotebooks);
+        Assert.False(viewModel.HasVisibleNotebooks);
+        Assert.Equal("0 of 1 notebooks", viewModel.LibraryCountText);
+        Assert.Equal("No notebooks found", viewModel.EmptyLibraryTitle);
+        Assert.Equal("Keep my latest edits", (await viewModel.Repository.LoadAsync(retained!.Id))!.Title);
+        viewModel.Search = "";
+        Assert.Equal(retained.Id, Assert.Single(viewModel.Notebooks).Id);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FailedSaveOrDeletePreservesNotebookAndAllowsRetry(bool failSave)
+    {
+        using var directory = new StorageTestDirectory();
+        var repository = new FailingSaveRepository(new SqliteNotebookRepository(directory.DatabasePath));
+        using var viewModel = new MainViewModel(repository);
+        await viewModel.CreateAsync("Keep until success", "My Notes");
+        var document = viewModel.Document!;
+        repository.FailSave = failSave; repository.FailDelete = !failSave;
+        viewModel.Rename("Latest content", "My Notes");
+
+        await Assert.ThrowsAsync<IOException>(() => viewModel.DeleteNotebookAsync(document.Id));
+
+        Assert.Same(document, viewModel.Document);
+        Assert.Single(viewModel.Notebooks);
+        Assert.True(viewModel.IsEditorVisible);
+        Assert.True(viewModel.CanUndo);
+        Assert.NotNull(await repository.LoadAsync(document.Id));
+        if (failSave)
+        {
+            Assert.True(viewModel.HasSaveError);
+            Assert.Equal("Latest content", Assert.Single(viewModel.Autosave.PendingDocuments).Title);
+        }
+        repository.FailSave = false; repository.FailDelete = false;
+        await viewModel.DeleteNotebookAsync(document.Id);
+        Assert.Null(await repository.LoadAsync(document.Id));
+        Assert.False(viewModel.HasNotebooks);
+    }
+
+    [Fact]
+    public async Task DeletionWaitsForInFlightSaveBeforeRemovingNotebook()
+    {
+        using var directory = new StorageTestDirectory();
+        var repository = new FailingSaveRepository(new SqliteNotebookRepository(directory.DatabasePath));
+        using var viewModel = new MainViewModel(repository);
+        await viewModel.CreateAsync("Save in flight", "My Notes");
+        var id = viewModel.Document!.Id;
+        repository.BlockNextSave = true;
+        viewModel.Rename("New title", "My Notes");
+        var flush = viewModel.Autosave.FlushAsync();
+        await repository.SaveStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var deletion = viewModel.DeleteNotebookAsync(id);
+        try { Assert.False(deletion.IsCompleted); }
+        finally { repository.AllowSave.TrySetResult(); }
+        await Task.WhenAll(flush, deletion).WaitAsync(TimeSpan.FromSeconds(5));
+        await viewModel.Autosave.RetryAsync();
+        Assert.Null(await repository.LoadAsync(id));
+        Assert.Empty(viewModel.Autosave.PendingDocuments);
+    }
+
     private sealed class FailingSaveRepository(INotebookRepository inner) : INotebookRepository
     {
         public bool FailSave { get; set; }
+        public bool FailDelete { get; set; }
+        public bool BlockNextSave { get; set; }
+        public TaskCompletionSource SaveStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowSave { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task InitializeAsync() => inner.InitializeAsync();
         public Task<IReadOnlyList<NotebookSummary>> ListAsync() => inner.ListAsync();
         public Task<NotebookDocument?> LoadAsync(string id) => inner.LoadAsync(id);
-        public Task SaveAsync(NotebookDocument document) => FailSave ? Task.FromException(new IOException("Simulated disk write failure")) : inner.SaveAsync(document);
-        public Task DeleteAsync(string id) => inner.DeleteAsync(id);
+        public async Task SaveAsync(NotebookDocument document)
+        {
+            if (BlockNextSave)
+            {
+                BlockNextSave = false; SaveStarted.TrySetResult();
+                await AllowSave.Task;
+            }
+            if (FailSave) throw new IOException("Simulated disk write failure");
+            await inner.SaveAsync(document);
+        }
+        public Task DeleteAsync(string id) => FailDelete ? Task.FromException(new IOException("Simulated delete failure")) : inner.DeleteAsync(id);
         public Task<AssetData> PutAssetAsync(string fileName, string contentType, byte[] bytes) => inner.PutAssetAsync(fileName, contentType, bytes);
         public Task<AssetData> GetAssetAsync(string id) => inner.GetAssetAsync(id);
         public void Dispose() => inner.Dispose();

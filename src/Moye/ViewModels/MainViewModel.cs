@@ -99,6 +99,26 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IsLibraryVisible = true; UpdateSaveStatus();
     }
 
+    public async Task DeleteNotebookAsync(string id)
+    {
+        // The UI commits editors and blocks input before this operation. Finish
+        // queued/in-flight saves first so they cannot recreate the deleted note.
+        await Autosave.FlushAsync();
+        await Repository.DeleteAsync(id);
+        if (Document?.Id == id)
+        {
+            Document = null;
+            _history.Clear(); Pages.Clear(); SelectedPage = null;
+            IsLibraryVisible = true;
+            Notify(nameof(PageCountText)); Notify(nameof(CurrentPageText));
+            DocumentReplaced?.Invoke(this, EventArgs.Empty); UpdateHistory();
+        }
+        // Update locally after deletion succeeds; a failed list refresh must not
+        // leave a deleted notebook selectable or its editor/history active.
+        _library.RemoveAll(notebook => notebook.Id == id);
+        FilterLibrary(); UpdateSaveStatus();
+    }
+
     public void ReplaceDocument(NotebookDocument document, bool resetHistory = false)
     {
         var selectedId = resetHistory ? null : SelectedPage?.Page.Id;

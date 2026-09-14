@@ -133,6 +133,31 @@ public partial class MainWindow : Window
         CommitEditors(); ViewModel.Rename(dialog.Values[0], dialog.Values[1]); SelectLibraryCurrent();
     }
 
+    private async void DeleteNotebookClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsBusy) return;
+        var summary = (sender as FrameworkElement)?.DataContext as NotebookSummary;
+        var id = summary?.Id ?? ViewModel.Document?.Id;
+        var title = summary?.Title ?? ViewModel.Title;
+        if (id is null) return;
+        CloseSettingsPopups();
+        if (MessageBox.Show(this,
+            $"Delete \"{title}\" and all its pages?\n\nThis cannot be undone. To keep a copy, cancel and back up the notebook first.",
+            "Delete Notebook", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        await RunAsync("Deleting notebook…", async () =>
+        {
+            ClearTouches(); CommitEditors();
+            await ViewModel.DeleteNotebookAsync(id);
+            SelectLibraryCurrent();
+            if (ViewModel.IsLibraryVisible)
+            {
+                _fitWidthActive = false;
+                if (_focusMode) ToggleFocus();
+            }
+        });
+        if (ViewModel.IsLibraryVisible) HomeSearch.Focus();
+    }
+
     private async void NotebookSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_ready || ViewModel.IsBusy || NotebookList.SelectedItem is not NotebookSummary summary || summary.Id == ViewModel.Document?.Id) return;

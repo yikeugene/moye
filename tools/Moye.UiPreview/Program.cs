@@ -66,7 +66,8 @@ internal static class Program
                     var fileName = $"ui-preview-{state}-{width}.png";
                     SaveImage(output, fileName, RenderElement(content, width, height));
                     VerifyDetached(content, window);
-                    reports.Add(MeasureButtons(content, width, height, fileName, state, "HomeNewNotebookButton"));
+                    reports.Add(MeasureButtons(content, width, height, fileName, state,
+                        state == "library" ? ["HomeNewNotebookButton", "DeleteNotebookButton"] : ["HomeNewNotebookButton"]));
                 }
             }
             repository.IncludeDocument = true;

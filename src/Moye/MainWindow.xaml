@@ -27,7 +27,7 @@
         <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Button Content="&#xE710;" Click="MoreClick" ToolTip="Insert" AutomationProperties.Name="Insert" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Add Page" Click="AddPageClick" /><Separator/><MenuItem Header="Import PDF…" Click="ImportPdfClick" /><MenuItem Header="Insert Image…" Click="ImageClick" /></ContextMenu></Button.ContextMenu></Button>
           <Button Content="&#xE72D;" Click="ExportPdfClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Share: Export PDF" AutomationProperties.Name="Export PDF"/>
-          <Button Content="&#xE712;" Click="MoreClick" ToolTip="More" AutomationProperties.Name="More" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Rename and Category…" Click="RenameClick" /><Separator/><MenuItem Header="Back Up This Notebook…" Click="BackupNoteClick" /><MenuItem Header="Back Up All Notebooks…" Click="BackupAllClick" /><MenuItem Header="Restore .moye Backup…" Click="RestoreClick" /><Separator/><MenuItem Header="Retry Save" Click="RetrySaveClick" /><MenuItem Header="User Guide" Click="HelpClick" /></ContextMenu></Button.ContextMenu></Button>
+          <Button Content="&#xE712;" Click="MoreClick" ToolTip="More" AutomationProperties.Name="More" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Rename and Category…" Click="RenameClick" /><Separator/><MenuItem Header="Back Up This Notebook…" Click="BackupNoteClick" /><MenuItem Header="Back Up All Notebooks…" Click="BackupAllClick" /><MenuItem Header="Restore .moye Backup…" Click="RestoreClick" /><Separator/><MenuItem Header="Delete Notebook…" Click="DeleteNotebookClick" /><Separator/><MenuItem Header="Retry Save" Click="RetrySaveClick" /><MenuItem Header="User Guide" Click="HelpClick" /></ContextMenu></Button.ContextMenu></Button>
         </StackPanel>
       </Grid>
     </Border>
@@ -259,7 +259,8 @@
         <ItemsControl x:Name="HomeNotebookCards" ItemsSource="{Binding Notebooks}" Margin="-8,4,0,24">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate><DataTemplate>
-            <Button Click="OpenNotebookClick" Width="214" Height="292" Margin="8,8,12,16" Padding="18" HorizontalContentAlignment="Stretch" Background="White" BorderBrush="#E3E7EF" BorderThickness="1" AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}">
+            <StackPanel Width="214" Margin="8,8,12,16">
+            <Button Click="OpenNotebookClick" Width="214" Height="292" Margin="0" Padding="18" HorizontalContentAlignment="Stretch" Background="White" BorderBrush="#E3E7EF" BorderThickness="1" AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}">
               <StackPanel Width="176">
                 <Border Width="132" Height="174" Background="#657FA8" CornerRadius="3,10,10,3" Margin="0,0,0,18" HorizontalAlignment="Left">
                   <Grid>
@@ -272,6 +273,8 @@
                 <TextBlock Text="{Binding PageCountText}" FontSize="11" Foreground="#929BA9" Margin="0,5,0,0"/>
               </StackPanel>
             </Button>
+            <Button x:Name="DeleteNotebookButton" Content="Delete Notebook…" Click="DeleteNotebookClick" Height="44" Margin="0,4,0,0" Foreground="#A93C3C" AutomationProperties.Name="{Binding Title, StringFormat='Delete notebook: {0}'}"/>
+            </StackPanel>
           </DataTemplate></ItemsControl.ItemTemplate>
         </ItemsControl>
       </ScrollViewer>
