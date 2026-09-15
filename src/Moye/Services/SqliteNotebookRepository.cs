@@ -59,6 +59,9 @@ public sealed class SqliteNotebookRepository : INotebookRepository
                 CreatedUtc = ParseDate(reader.GetString(2)), ModifiedUtc = ParseDate(reader.GetString(3))
             };
         }
+        command.CommandText = "SELECT id,title FROM sections WHERE notebook_id=$id ORDER BY ordinal,id";
+        using (var sections = command.ExecuteReader())
+            while (sections.Read()) document.Sections.Add(new NoteSection { Id = sections.GetString(0), Title = sections.GetString(1) });
         command.CommandText = "SELECT metadata_json,ink FROM pages WHERE notebook_id=$id ORDER BY ordinal";
         using var pages = command.ExecuteReader();
         while (pages.Read())
@@ -68,6 +71,7 @@ public sealed class SqliteNotebookRepository : INotebookRepository
             page.InkData = pages.GetFieldValue<byte[]>(1);
             document.Pages.Add(page);
         }
+        NotebookStructure.Normalize(document);
         return document;
     });
 
@@ -75,11 +79,14 @@ public sealed class SqliteNotebookRepository : INotebookRepository
     {
         // Snapshot before dispatch, while the caller still owns the editable model.
         var snapshot = document.Snapshot();
+        NotebookStructure.Normalize(snapshot);
         foreach (var page in snapshot.Pages) page.InkData = page.InkData.ToArray();
         return RunAsync(connection =>
         {
             if (string.IsNullOrWhiteSpace(snapshot.Id) || snapshot.Pages.Select(p => p.Id).Distinct().Count() != snapshot.Pages.Count)
                 throw new InvalidDataException("Invalid notebook or page ID.");
+            if (snapshot.Sections.Count > 20_000 || snapshot.Sections.Any(section => section.Id.Length > 200 || section.Title.Length > 10_000))
+                throw new InvalidDataException("Invalid notebook section structure.");
             using var transaction = connection.BeginTransaction();
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
@@ -93,6 +100,22 @@ public sealed class SqliteNotebookRepository : INotebookRepository
             command.Parameters.AddWithValue("$created", FormatDate(snapshot.CreatedUtc));
             command.Parameters.AddWithValue("$modified", FormatDate(snapshot.ModifiedUtc));
             command.ExecuteNonQuery();
+
+            command.CommandText = "DELETE FROM sections WHERE notebook_id=$id";
+            command.Parameters.Clear();
+            command.Parameters.AddWithValue("$id", snapshot.Id);
+            command.ExecuteNonQuery();
+            for (var index = 0; index < snapshot.Sections.Count; index++)
+            {
+                var section = snapshot.Sections[index];
+                command.CommandText = "INSERT INTO sections(notebook_id,id,ordinal,title) VALUES($note,$section,$ordinal,$title)";
+                command.Parameters.Clear();
+                command.Parameters.AddWithValue("$note", snapshot.Id);
+                command.Parameters.AddWithValue("$section", section.Id);
+                command.Parameters.AddWithValue("$ordinal", index);
+                command.Parameters.AddWithValue("$title", section.Title);
+                command.ExecuteNonQuery();
+            }
 
             var existing = new Dictionary<string, string>(StringComparer.Ordinal);
             command.CommandText = "SELECT id,content_hash FROM pages WHERE notebook_id=$id";
@@ -201,24 +224,58 @@ public sealed class SqliteNotebookRepository : INotebookRepository
                 setup.ExecuteNonQuery();
                 if (!_initialized)
                 {
-                    setup.CommandText = "PRAGMA user_version;";
-                    if (Convert.ToInt32(setup.ExecuteScalar(), CultureInfo.InvariantCulture) > 1)
-                        throw new InvalidDataException("This database was created by a newer version of Moye. Update the app before opening it.");
-                    setup.CommandText = """
-                        PRAGMA journal_mode=WAL;
-                        CREATE TABLE IF NOT EXISTS notebooks(id TEXT PRIMARY KEY,title TEXT NOT NULL,folder TEXT NOT NULL,created_utc TEXT NOT NULL,modified_utc TEXT NOT NULL);
-                        CREATE TABLE IF NOT EXISTS pages(notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,id TEXT NOT NULL,ordinal INTEGER NOT NULL,metadata_json TEXT NOT NULL,ink BLOB NOT NULL,content_hash TEXT NOT NULL,PRIMARY KEY(notebook_id,id));
-                        CREATE INDEX IF NOT EXISTS ix_pages_order ON pages(notebook_id,ordinal);
-                        CREATE TABLE IF NOT EXISTS assets(id TEXT PRIMARY KEY,file_name TEXT NOT NULL,content_type TEXT NOT NULL,data BLOB NOT NULL);
-                        PRAGMA user_version=1;
-                        """;
-                    setup.ExecuteNonQuery();
+                    InitializeSchema(connection);
                     _initialized = true;
                 }
                 return action(connection);
             }).ConfigureAwait(false);
         }
         finally { _gate.Release(); }
+    }
+
+    private static void InitializeSchema(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA user_version";
+        var version = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        if (version > 2)
+            throw new InvalidDataException("This database was created by a newer version of Moye. Update the app before opening it.");
+        command.CommandText = "PRAGMA journal_mode=WAL";
+        command.ExecuteNonQuery();
+        using var transaction = connection.BeginTransaction();
+        command.Transaction = transaction;
+        command.CommandText = """
+            CREATE TABLE IF NOT EXISTS notebooks(id TEXT PRIMARY KEY,title TEXT NOT NULL,folder TEXT NOT NULL,created_utc TEXT NOT NULL,modified_utc TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS pages(notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,id TEXT NOT NULL,ordinal INTEGER NOT NULL,metadata_json TEXT NOT NULL,ink BLOB NOT NULL,content_hash TEXT NOT NULL,PRIMARY KEY(notebook_id,id));
+            CREATE INDEX IF NOT EXISTS ix_pages_order ON pages(notebook_id,ordinal);
+            CREATE TABLE IF NOT EXISTS assets(id TEXT PRIMARY KEY,file_name TEXT NOT NULL,content_type TEXT NOT NULL,data BLOB NOT NULL);
+            CREATE TABLE IF NOT EXISTS sections(notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,id TEXT NOT NULL,ordinal INTEGER NOT NULL,title TEXT NOT NULL,PRIMARY KEY(notebook_id,id));
+            CREATE INDEX IF NOT EXISTS ix_sections_order ON sections(notebook_id,ordinal);
+            """;
+        command.ExecuteNonQuery();
+        if (version < 2)
+        {
+            command.CommandText = "SELECT id FROM notebooks";
+            var notebookIds = new List<string>();
+            using (var reader = command.ExecuteReader()) while (reader.Read()) notebookIds.Add(reader.GetString(0));
+            foreach (var id in notebookIds)
+            {
+                var legacy = new NotebookDocument { Id = id };
+                NotebookStructure.Normalize(legacy);
+                command.CommandText = "INSERT INTO sections(notebook_id,id,ordinal,title) VALUES($note,$section,0,'General')";
+                command.Parameters.Clear();
+                command.Parameters.AddWithValue("$note", id);
+                command.Parameters.AddWithValue("$section", legacy.Sections[0].Id);
+                command.ExecuteNonQuery();
+                // Preserve every existing metadata field and the original ISF blob; invalidate only the content hash.
+                command.CommandText = "UPDATE pages SET metadata_json=json_set(metadata_json,'$.sectionId',$section),content_hash='' WHERE notebook_id=$note";
+                command.ExecuteNonQuery();
+            }
+        }
+        command.Parameters.Clear();
+        command.CommandText = "PRAGMA user_version=2";
+        command.ExecuteNonQuery();
+        transaction.Commit();
     }
 
     private static string FormatDate(DateTimeOffset date) => date.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);

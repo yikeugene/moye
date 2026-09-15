@@ -54,6 +54,7 @@ try {
     # in docs must never be swept into a release by a recursive directory copy.
     $MoyePublicDocs = @(
         'docs/USER_GUIDE.md',
+        'docs/FILE_FORMAT.md',
         'docs/THIRD-PARTY-NOTICES.md',
         ('docs/RELEASE_NOTES_' + $MoyeVersion + '.md'),
         'docs/licenses/Apache-2.0.txt',

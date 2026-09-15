@@ -39,6 +39,14 @@ Run the tests relevant to your change, then the complete suite before submitting
 
 For layout changes, `.\scripts\preview-ui.ps1` renders the actual WPF interface with synthetic content. Also check the changed interaction in a real desktop window. Internal renders and accessibility-tree reads do not establish that a popup, touch gesture, or input method works interactively.
 
+The preview tool also has an optional desktop fixture for testing the real editor without a SQLite library. After building the preview project, run its DLL with the repository root followed by `--interactive`. For example, with a locally installed SDK:
+
+```powershell
+.\.tools\dotnet\dotnet.exe .\tools\Moye.UiPreview\bin\Release\net10.0-windows10.0.26100.0\Moye.UiPreview.dll . --interactive
+```
+
+The window is labeled **Synthetic UI Test (memory only)**. Its sample notebooks reset on close; only writing preferences use `artifacts/interactive-preview`. This fixture checks UI behavior, not SQLite persistence or crash recovery. The default preview command still renders detached layouts without creating a desktop window.
+
 For pen or touch changes, report the laptop, active pen, driver, and the exact actions tested. Mouse drawing is not evidence of pressure response or palm rejection. Similarly, direct Unicode entry is not evidence of IME composition. Leave untested behavior explicitly unverified.
 
 Use the [verification and limitations](README.md#verification-and-limitations) summary to understand existing coverage and outstanding checks. Generated TRX results and layout reports stay in `artifacts`; keep detailed internal QA notes local. Add regression tests where they can meaningfully catch the issue; avoid tests that merely repeat the implementation.

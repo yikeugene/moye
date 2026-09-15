@@ -31,6 +31,9 @@ internal static class Program
             var repositoryRoot = Path.GetFullPath(args.FirstOrDefault() ?? Directory.GetCurrentDirectory());
             var output = Path.Combine(repositoryRoot, "artifacts");
             Directory.CreateDirectory(output);
+            if (args.Contains("--interactive", StringComparer.Ordinal))
+                return InteractivePreview.Run(ReadApplicationResources(Path.Combine(repositoryRoot, "src", "Moye", "App.xaml")),
+                    output);
             RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             application.Resources = ReadApplicationResources(Path.Combine(repositoryRoot, "src", "Moye", "App.xaml"));
@@ -120,7 +123,7 @@ internal static class Program
                 var bitmap = RenderElement(content, width, height);
                 var fileName = fitMode == "width" ? $"ui-preview-fit-width-{width}.png" : $"ui-preview-{width}.png";
                 SaveImage(output, fileName, bitmap);
-                var report = MeasureButtons(content, width, height, fileName, fitMode == "width" ? "editor-fit-width" : "editor", "PenButton", "PenSettingsButton", "FitWidthButton") with
+                var report = MeasureButtons(content, width, height, fileName, fitMode == "width" ? "editor-fit-width" : "editor", "PenButton", "PenSettingsButton", "FitWidthButton", "AddSectionButton", "SectionOptionsButton") with
                 {
                     ViewportWidth = Round(viewport.ActualWidth), ViewportHeight = Round(viewport.ActualHeight),
                     Zoom = window.ViewModel.Zoom
@@ -143,6 +146,7 @@ internal static class Program
             }
 
             VerifyTypingCommandsAndLayout(window, content, repository, output, reports);
+            VerifySectionNavigationLayout(window, content, repository, output, reports);
 
             // Exercise the compiled focus chrome without changing WindowStyle or
             // creating a native window. Save-error UI remains separately visible.
@@ -378,6 +382,45 @@ internal static class Program
         Call("FinishTyping"); editors.Clear(); page.Texts = originalTexts; host.Child = original;
     }
 
+    private static void VerifySectionNavigationLayout(MainWindow window, FrameworkElement content, FixtureRepository repository,
+        string output, List<PreviewReport> reports)
+    {
+        var original = window.ViewModel.SelectedSection!;
+        var target = window.ViewModel.Sections.Last();
+        window.ViewModel.SelectedSection = target;
+        var sectionList = (ListBox)window.FindName("SectionList");
+        var thumbnailList = (ListBox)window.FindName("ThumbnailList");
+        var pageList = (ListBox)window.FindName("PageList");
+        foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
+        {
+            Arrange(content, width, height);
+            if (sectionList.SelectedItem != target || window.ViewModel.Pages.Any(p => p.Page.SectionId != target.Id) ||
+                thumbnailList.Items.Count != window.ViewModel.Pages.Count)
+                throw new InvalidOperationException("Section navigation must show only that section's page thumbnails and paper.");
+            sectionList.ScrollIntoView(target);
+            Arrange(content, width, height);
+            foreach (var host in Descendants<Border>(pageList).Where(b => b.DataContext is PageViewModel &&
+                         double.IsFinite(b.Width) && double.IsFinite(b.Height)))
+                host.Child ??= CreateEditor((PageViewModel)host.DataContext, repository);
+            foreach (var row in Descendants<ListBoxItem>(sectionList))
+                if (row.ActualHeight < 44) throw new InvalidOperationException("Section rows must be at least 44 DIP tall.");
+            if (thumbnailList.ActualHeight < 100)
+                throw new InvalidOperationException("Sections must leave room to navigate page thumbnails at minimum window size.");
+            var fileName = $"ui-preview-sections-{width}.png";
+            SaveImage(output, fileName, RenderElement(content, width, height));
+            VerifyDetached(content, window);
+            reports.Add(MeasureButtons(content, width, height, fileName, "sections", "AddSectionButton", "SectionOptionsButton", "PageOptionsButton"));
+        }
+        window.ViewModel.SelectedSection = window.ViewModel.Sections.First(s => s.Id == "empty-topic");
+        foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
+        {
+            var fileName = $"ui-preview-empty-section-{width}.png";
+            SaveImage(output, fileName, RenderElement(content, width, height));
+            reports.Add(MeasureButtons(content, width, height, fileName, "empty-section", "EmptySectionAddPageButton", "AddSectionButton"));
+        }
+        window.ViewModel.SelectedSection = original;
+    }
+
     private static void SaveImage(string output, string fileName, BitmapSource bitmap)
     {
         using var file = File.Create(Path.Combine(output, fileName));
@@ -512,12 +555,14 @@ internal static class Program
         public bool IncludeDocument { get; set; } = true;
         public NotebookDocument Document { get; } = new()
         {
-            Id = "offline-ui-preview-fixture", Title = "Everyday Ideas", Folder = "My Notebooks",
+            Id = "offline-ui-preview-fixture", Title = "Mathematics", Folder = "Semester 1",
+            Sections = [new() { Id = "algebra", Title = "Linear Algebra" }, new() { Id = "calculus", Title = "Calculus" }, new() { Id = "empty-topic", Title = "Next Lecture" },
+                new() { Id = "revision", Title = "Revision — Important formulas and worked tutorial examples" }],
             Pages =
             [
                 new()
                 {
-                    Template = PaperTemplate.Ruled,
+                    SectionId = "algebra", Template = PaperTemplate.Ruled,
                     Texts =
                     [
                         new() { X = 58, Y = 28, Width = 670, Height = 66, FontSize = 32, Text = "Sunday Ideas" },
@@ -527,8 +572,11 @@ internal static class Program
                             Text = "This local Moye test note is used to check offscreen layout." }
                     ]
                 },
-                new() { Template = PaperTemplate.Grid },
-                new()
+                new() { SectionId = "algebra", Template = PaperTemplate.Grid },
+                new() { SectionId = "algebra" },
+                new() { SectionId = "calculus", Template = PaperTemplate.Graph },
+                new() { SectionId = "revision", Template = PaperTemplate.Cornell,
+                    Texts = [new() { Text = "Midterm revision\n\n• Eigenvalues\n• Matrix operations", X = 200, Y = 80, Width = 500 }] }
             ]
         };
         public NotebookSummary Summary => new() { Id = Document.Id, Title = Document.Title, Folder = Document.Folder, PageCount = Document.Pages.Count, ModifiedUtc = Document.ModifiedUtc };

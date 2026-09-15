@@ -191,6 +191,41 @@ public sealed class PdfTests : IDisposable
         using var stream = new MemoryStream(); new StrokeCollection(strokes).Save(stream); return stream.ToArray();
     }
 
+    [Fact]
+    public async Task ExportAfterSectionReorderIncludesEverySectionAndKeepsInkPosition()
+    {
+        using var repository = new MemoryRepository();
+        using var model = new Moye.ViewModels.MainViewModel(repository);
+        await model.CreateAsync("Mathematics", "Semester 1", PaperTemplate.Plain);
+        model.RenameSection("Algebra");
+        var algebraPage = model.SelectedPage!.Page;
+        algebraPage.Width = 300; algebraPage.Height = 400;
+        algebraPage.InkData = await Sta(() => Ink(new Stroke(new StylusPointCollection
+        { new StylusPoint(40, 80, 1), new StylusPoint(140, 80, 1) },
+            new DrawingAttributes { Color = Colors.Blue, Width = 8, Height = 8, IgnorePressure = false })));
+        model.Changed();
+        model.AddSection("Calculus");
+        model.SelectedPage!.Page.Width = 420; model.SelectedPage.Page.Height = 300;
+        model.Changed();
+        model.AddPage(PaperTemplate.Graph);
+        model.SelectedPage!.Page.Width = 350; model.SelectedPage.Page.Height = 250;
+        model.Changed();
+        model.MoveSection(-1);
+        Assert.Equal(2, model.Pages.Count); // Only Calculus is visible in the editor.
+        var file = Path.Combine(_directory, "sections.pdf");
+        await model.Pdf.ExportAsync(file, model.Document!.Snapshot());
+        var imported = await model.Pdf.ImportAsync(file);
+        Assert.Equal(3, imported.Count); // Algebra must still be included.
+        Assert.InRange(imported[0].Width, 419, 421);
+        Assert.InRange(imported[1].Width, 349, 351);
+        Assert.InRange(imported[2].Width, 299, 301);
+        var bitmap = await model.Pdf.RenderAsync(imported[2], 1);
+        var blue = Bounds(bitmap, (r, g, b) => b > 180 && r < 100 && g < 100);
+        Assert.InRange(blue.X + blue.Width / 2, 89, 91);
+        Assert.InRange(blue.Y + blue.Height / 2, 79, 81);
+        await model.Autosave.FlushAsync();
+    }
+
     private static byte[] Pixels(BitmapSource bitmap)
     {
         var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Bgra32, null, 0);

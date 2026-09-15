@@ -191,6 +191,7 @@ P2 changes that introduce new persistent fields or document modes need a documen
 **Status: Partial. Priority: P0 for the library; P1 for organization.**
 
 - [x] Startup notebook home, explicit creation/opening, titles, category strings, title/category search and recently modified ordering.
+- Implemented in the current unreleased source: **Notebook → Section → Page**, with section names/order, page transfer, undo/redo, autosave and versioned backup migration. Existing pages are assigned to **General**. This structure supports **Course → Topic → Notes**; it does not add filesystem folders or nested sections.
 - [ ] Add real folders/subfolders, notebook duplication, move and delete controls, favorites and a dedicated recent-notebooks view.
 - [ ] Make organizational changes reversible where possible and preserve library search/selection during updates.
 
@@ -370,7 +371,7 @@ Implemented locally: Type creates or resumes a box; the contextual bar formats t
 **Status: Partial. Priority: P1 for documentation; P2 for broader interoperability.**
 
 - [x] Versioned ZIP backups contain a JSON manifest and notebook structure, ISF page ink, assets and original PDFs; implementation is open source.
-- [ ] Publish a standalone schema/format guide, examples and compatibility rules; add optional previews.
+- [ ] Publish the local [schema/format guide](docs/FILE_FORMAT.md), examples and compatibility rules; add optional previews.
 - [ ] Consider portable stroke-point interchange. ISF retains editable Windows ink, but is not already a plain JSON point format that every platform can read directly.
 
 ### 36. Vector Ink

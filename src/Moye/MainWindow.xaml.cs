@@ -42,12 +42,13 @@ public partial class MainWindow : Window
     private bool _zoomNavigationActive;
     private int _zoomNavigationRevision;
     private sealed record PageZoomAnchor(PageViewModel Page, Point PagePoint, Point ViewportPoint);
-    private bool AnyPenDown => _editors.Values.Any(e => e.IsInputActive);
+    private bool AnyPenDown => IsViewportPenContactActive || _editors.Values.Any(e => e.IsInputActive);
 
     public MainWindow(INotebookRepository repository, WritingPreferencesStore? preferencesStore = null)
     {
         _preferencesStore = preferencesStore ?? new WritingPreferencesStore();
         ViewModel = new(repository); InitializeComponent(); DataContext = ViewModel;
+        InitializeInputStability();
         InitializeWritingUi();
         InitializeTypingUi();
         Width = Math.Min(1400, SystemParameters.WorkArea.Width - 24);
@@ -115,7 +116,7 @@ public partial class MainWindow : Window
 
     private void PowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
-        Dispatcher.InvokeAsync(() => { if (!_closing) { EndTemporaryPan(); ClearTouches(); CommitEditors(); } });
+        Dispatcher.InvokeAsync(() => { if (!_closing) { EndTemporaryPan(); ClearTouches(); CommitEditors(); ResetViewportInputStability(); } });
     }
 
     private async void NewNoteClick(object sender, RoutedEventArgs e)
@@ -274,7 +275,10 @@ public partial class MainWindow : Window
     }
     private void EditorVisualChanged(object? sender, EventArgs e) { if (sender is PageEditor editor) { _dirtyThumbnails.Add(editor); _thumbnailTimer.Start(); } }
     private void EditorAssetFailed(object? sender, string message) => ViewModel.Status = "Unable to load image: " + message;
-    private void PageHostMouseDown(object sender, MouseButtonEventArgs e) => ActivatePage((Border)sender);
+    private void PageHostMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!PenInkCanvas.IsTouch(e.StylusDevice)) ActivatePage((Border)sender);
+    }
     private void PageHostStylusDown(object sender, StylusDownEventArgs e)
     {
         if (e.StylusDevice.TabletDevice.Type == TabletDeviceType.Stylus) ActivatePage((Border)sender);
@@ -284,7 +288,8 @@ public partial class MainWindow : Window
         if (host.DataContext is not PageViewModel item) return;
         _suppressPageSelection = true; ViewModel.SelectedPage = item; SyncPageTemplate(); _suppressPageSelection = false;
         UpdateTextToolbar();
-        if (_tool is InkTool.Pen or InkTool.Highlighter or InkTool.PointEraser or InkTool.StrokeEraser or InkTool.Lasso) PageList.Focus();
+        // InkCanvas takes focus itself. Focusing the ListBox here can bring its
+        // selected item into view before the first stylus sample reaches the ink.
     }
 
     private void UpdateThumbnail(PageEditor editor)
@@ -582,7 +587,7 @@ public partial class MainWindow : Window
     private async void RetrySaveClick(object sender, RoutedEventArgs e) => await RunAsync("Retrying save…", async () => { await ViewModel.Autosave.RetryAsync(); await SavePreferencesAsync(true); });
     private void MoreClick(object sender, RoutedEventArgs e) { var button = (Button)sender; button.ContextMenu.PlacementTarget = button; button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true; }
     private void HelpClick(object sender, RoutedEventArgs e) => MessageBox.Show(this,
-        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nAll Notes saves and returns home. Click the title to rename.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Presets for your everyday pens; press 1–9 to switch.\nPen Settings controls thickness, opacity, pressure and Draw and Hold.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nShare exports PDF with flattened annotations and outlined added text.\n\nMoye 1.5.0 · Offline Windows notebooks", "Moye User Guide");
+        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nAll Notes saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics; Page Options moves pages between sections.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Presets for your everyday pens; press 1–9 to switch.\nPen Settings controls thickness, opacity, pressure and Draw and Hold.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nShare exports PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
 
     private void SidebarTabClick(object sender, RoutedEventArgs e) => ShowSidebarTab((string)((Button)sender).Tag == "Notebooks");
     private async void ShowNotebooksClick(object sender, RoutedEventArgs e)
@@ -633,9 +638,10 @@ public partial class MainWindow : Window
         ChangeZoom(available / target.Page.Width, new Point(Viewport.ActualWidth / 2, Viewport.ActualHeight / 2));
         _fitWidthActive = true;
         FitWidthButton.Foreground = (Brush)FindResource("Accent");
+        var revision = _zoomNavigationRevision;
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
-            if (!_fitWidthActive || ViewModel.IsLibraryVisible) return;
+            if (!_fitWidthActive || ViewModel.IsLibraryVisible || AnyPenDown || revision != _zoomNavigationRevision) return;
             var scroll = GetScroll();
             if (scroll is not null) scroll.ScrollToHorizontalOffset(Math.Max(0, (scroll.ExtentWidth - scroll.ViewportWidth) / 2));
         }));

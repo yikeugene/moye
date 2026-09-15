@@ -16,7 +16,9 @@ The installer places the app in `%LOCALAPPDATA%\Programs\Moye` by default. To up
 
 ## Features
 
+- Current source includes an unreleased **Notebook → Section → Page** workflow: use a notebook for a course, sections for topics, and pages for lecture notes. These changes are not yet in the linked GitHub download.
 - Notebooks with titles and categories; search by either. Delete a notebook from its home card or **More → Delete Notebook…**, with confirmation. Add, duplicate, reorder, and delete pages.
+- Create, rename, reorder or delete sections; move pages between sections. Section changes support notebook undo/redo, local autosave and editable backups. Existing pages appear in **General**.
 - Pressure-sensitive pen and highlighter with draw-and-hold straight lines, Pixel and Stroke erasers, and lasso selection. Move, resize, recolor, duplicate, or delete selected ink.
 - Persistent named pen presets, with favorite buttons, drag-to-reorder and `1`–`9` shortcuts. Rename, duplicate, delete or hide favorites; adjust pen opacity, pressure sensitivity and smoothing.
 - Independent eraser size, highlighter-only erasing, and a remembered mode for the pen's tail eraser.
@@ -27,7 +29,7 @@ The installer places the app in `%LOCALAPPDATA%\Programs\Moye` by default. To up
 - PDF import and annotation, PDF export for sharing, and `.moye` backups that preserve editable content.
 - Background autosave to a local SQLite database, with unsaved snapshots retained if a write fails.
 
-The English interface puts the document title at the top, with **Pages** and **Notebooks** tabs in the sidebar. **All Notes** saves and returns to the notebook home screen. **Insert** contains page, PDF, and image commands; **Page Options** contains page management and paper styles. **Fit Width**, beside **Fit Page**, fits paper to the writing area and responds to window/sidebar resizing. `F11` hides the header, toolbar, sidebar and footer, while keeping **Exit Focus** and save errors available.
+The English interface puts the document title at the top, with **Contents** and **Notebooks** tabs in the sidebar. **All Notes** saves and returns to the notebook home screen. **Insert** contains page, PDF, and image commands; **Page Options** contains page management and paper styles. **Fit Width**, beside **Fit Page**, fits paper to the writing area and responds to window/sidebar resizing. `F11` hides the header, toolbar, sidebar and footer, while keeping **Exit Focus** and save errors available.
 
 The starting presets are Black Pen **0.45 mm**, Blue Pen **0.45 mm**, Red Pen **0.35 mm** and Yellow Highlighter **3 mm**. Preset widths range from approximately **0.132292 to 6.35 mm**. Pen opacity is adjustable from **10% to 100%**; highlighters use native **50%** transparency. Use **Pen Settings → Save Current as Preset…** to keep a new tool. **Presets…** manages up to 40 presets; the first nine favorites appear in the toolbar.
 
@@ -47,7 +49,9 @@ Text boxes grow down to the page boundary and scroll internally when their conte
 
 Notes are stored in `%LOCALAPPDATA%\Moye\moye.db`, with SQLite journal files alongside it. Moving the app folder does not move your notebooks. Use **More → Back Up All Notebooks** to create a portable `.moye` backup. Restoring creates new copies and does not overwrite existing notebooks.
 
-Backups include editable ink, pressure, text, images, page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. Version **1.6.2** keeps the existing notebook and backup formats.
+Backups include editable ink, pressure, text, images, section/page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. The unreleased section workflow reads existing libraries and version 1 backups, assigning old pages to **General**. It upgrades libraries to database schema 2 and writes version 2 `.moye` backups. Older published builds cannot open the upgraded library or new backups; use this build or a newer compatible one. See the [format guide](docs/FILE_FORMAT.md).
+
+The published 1.6.2 installer retains the older formats and does not include the unreleased section changes.
 
 The [roadmap](ROADMAP.md) describes **41 feature areas**, including future work. Version 1.5.0 delivers the first slice of that plan: persistent tools, faster editing shortcuts and selected reliability improvements. The complete roadmap is not implemented. Infinite canvas is planned; the current editor uses fixed pages. Cloud sync, recording, handwriting recognition and AI features are also unavailable.
 
@@ -79,6 +83,8 @@ CLI and NuGet caches are kept in `.tools\cli` and `.tools\nuget`. CLI telemetry 
 For a separate library, use `Moye.exe --data-dir .\sample-library`. The app keeps its `moye.db` and writing preferences in that directory.
 
 ## Verification and limitations
+
+For the unreleased section and input changes on **2026-09-15**, **156 of 233 tests passed**; the remaining **77 could not execute their checks because Windows Application Control blocked the existing SQLite dependency** (`0x800711C7`). Passing tests include viewport stability, section navigation/undo, memory-backed editable backup round trips and whole-notebook PDF ordering. An intermediate build passed **23 detached UI scenes**, including the section sidebar at both supported window sizes. The final preview and desktop fixture were also blocked by Application Control before launching, so final layout, desktop interaction and SQLite migration/reopen acceptance remain pending. No security settings were changed.
 
 The local automated run on **2026-09-14** passed **184 tests and 21 detached UI scenes**. The suite covers notebooks, deletion and failed-save recovery, SQLite storage, editable backups, ink operations, history, writing-preference persistence, typing helpers and PDF import/export. Detached WPF layout checks cover the notebook home, paper templates, settings, editor and text controls. Automated checks alone do not establish successful live pen, touch, or IME interaction. See [release notes](docs/RELEASE_NOTES_1.6.2.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for release validation.
 

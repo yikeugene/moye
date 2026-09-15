@@ -45,6 +45,11 @@ public sealed class PenInkCanvas : InkCanvas
         Stylus.SetIsFlicksEnabled(this, false);
         Stylus.SetIsTapFeedbackEnabled(this, false);
         Stylus.SetIsTouchFeedbackEnabled(this, false);
+        // InkCanvas focuses itself when input starts. Bringing its entire page
+        // into view at that point moves the coordinate system under the tip.
+        // Text boxes are siblings of this canvas, so their caret requests still
+        // reach the scroll viewer; explicit page navigation starts on an ancestor.
+        RequestBringIntoView += (_, e) => e.Handled = true;
         AddHandler(Stylus.StylusUpEvent, new StylusEventHandler((_, e) =>
         {
             if (IsTouch(e.StylusDevice)) return;

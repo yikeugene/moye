@@ -4,6 +4,8 @@ This guide describes the English interface in Moye 1.6.2 for Windows 11 x64.
 
 Version 1.6.0 adds the **Type** button and text-formatting workflow described below.
 
+The section workflow described here is an unreleased source change and is not included in the 1.6.2 installer.
+
 ## Install, update and uninstall
 
 Download `Moye-1.6.2-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
@@ -12,7 +14,7 @@ Open the **Moye** desktop shortcut after installation. When updating, close the 
 
 Remove Moye through **Windows Settings → Apps → Installed apps → Moye → Uninstall**. This removes installed program files and shortcuts while retaining notebook data and writing preferences. Use Moye's backup commands to make a portable copy of your notes.
 
-## Notebooks and pages
+## Notebooks, sections and pages
 
 Open `Moye.exe` to see **Your Notebooks**. Moye always starts on this home screen and waits for you to choose a notebook. An empty library shows a **Create a Notebook** button; it does not create a notebook automatically.
 
@@ -29,13 +31,23 @@ Click a notebook cover to open it, or **New Notebook** to choose a name, categor
 
 New paper pages are A4, and each template uses fixed spacing. The same geometry appears in page backgrounds, thumbnails and exported PDFs. Custom sizes, adjustable spacing and saved custom templates remain future work.
 
-Click **All Notes** to save your changes and return home. You can also switch notebooks using the editor's **Notebooks** sidebar tab. Opening a notebook shows its first page and the **Pages** thumbnails. Click the document title, or choose **More → Rename and Category**, to change its title and category. Search covers notebook titles and categories, not handwriting recognition or full-text search. The home screen also offers **Restore Backup** and **Library Options → Back Up All Notebooks**.
+Click **All Notes** to save your changes and return home. You can also switch notebooks using the editor's **Notebooks** sidebar tab. Opening a notebook shows the first section and its page thumbnails in **Contents**. Click the document title, or choose **More → Rename and Category**, to change its title and category. Search covers notebook titles and categories, not handwriting recognition or full-text search. The home screen also offers **Restore Backup** and **Library Options → Back Up All Notebooks**.
 
-Select a page thumbnail, then use **Insert → Add Page**, or **Add Page** beneath the thumbnails. Choose a paper preview and click **Add Page** to insert after the current page. The picker starts with the current ordinary page's style, or Ruled when viewing a PDF. The **Page Options** menu above the thumbnails lets you duplicate, move, or delete the selected page. Page deletion can be undone. Deleting the last page leaves a new blank page.
+Select a page thumbnail, then use **Insert → Add Page**, or **Add Page** beneath the thumbnails. Choose a paper preview and click **Add Page** to insert after the current page. The picker starts with the current ordinary page's style, or Ruled when viewing a PDF. The **Page Options** menu above the thumbnails lets you duplicate, move, or delete the selected page. Page deletion can be undone. Deleting the last page in the notebook leaves a new blank page; a section can otherwise be empty.
 
 Choose **Page Options → Paper Style**, select a visual template, and click **Apply Paper** to change an existing page. Your writing, text and images stay in place. This changes only the current ordinary page; PDF pages keep their original background.
 
 To delete a notebook, click **Delete Notebook…** beneath its cover on the home screen, or open it and choose **More → Delete Notebook…**. The confirmation names the notebook and defaults to **No**. Choosing **Yes** deletes that notebook and all its pages; this cannot be undone. Back it up first if you need a copy. Deleting the open notebook returns you to the home screen. If saving or deletion fails, the notebook stays available so you can retry.
+
+## Organizing a course
+
+Use one notebook per course, such as **Mathematics**, then create a section for each topic, such as **Linear Algebra** or **Calculus**. A section contains ordinary paper pages and imported PDF pages.
+
+In **Contents**, click **＋** beside **SECTIONS** to name a section. It starts with one page using your current paper style (or Ruled when the current page is a PDF). Select a section to show its pages; page numbers start at 1 within each section. Returning to a section recalls its last selected page during the current editing session.
+
+Use **Section Options (⋯)** to rename or move the selected section up/down. **Delete Section…** asks for confirmation and removes its pages; notebook Undo can restore them while the notebook stays open. Keep at least one section. Use **Page Options → Move Page to Section** to organize existing pages; the editor follows the moved page. An empty source section remains available, with **Add Page** ready to create its next page.
+
+New and older notebooks begin with **General**, which you can rename to your first topic. Section changes are autosaved, and switching sections commits pending handwriting and text. PDF import inserts pages into the current section; exporting the notebook includes every section in sidebar order and each section's pages in their displayed order. A `.moye` backup preserves names, order and editable page contents.
 
 ## Pen presets
 
@@ -121,7 +133,7 @@ Encrypted documents, interactive forms, digital signatures, and internal or cros
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Version **1.6.2** keeps existing notebooks and `.moye` backups compatible and preserves text-box formatting when saving and restoring.
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. The unreleased section workflow reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; older published builds cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
 
 Writing preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`. This file contains presets and writing settings, and is **not included in `.moye` backups**. For a library started with `--data-dir`, both the database and preferences stay in that selected directory. A damaged settings file is preserved before defaults are offered; an unreadable or unsupported-version file is protected from replacement. A writing-settings warning offers details and retry when available. When an existing preferences file cannot be read or belongs to a newer version, tool changes apply to the current session only; notebooks still save and the app can close normally. Restart after resolving that file. A later write failure retains pending settings for retry.
 

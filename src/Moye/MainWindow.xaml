@@ -22,7 +22,7 @@
           <StackPanel Orientation="Horizontal"><TextBlock Text="‹" FontSize="27" Margin="0,-3,12,0"/><Path Data="M4,2 L20,2 Q22,2 22,4 L22,23 5,23 Q2,23 2,20 L2,5 Q2,2 4,2 M6,2 L6,18 M2,19 Q3,18 5,18 L22,18 M10,7 L18,7 M10,11 L16,11" Style="{StaticResource ToolIcon}" Width="19" Height="21"/><TextBlock Text="All Notes" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold"/></StackPanel>
         </Button>
         <Button Grid.Column="1" Click="RenameClick" ToolTip="Rename and Category" MaxWidth="540" Padding="24,5" HorizontalAlignment="Center">
-          <StackPanel><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" MaxWidth="450" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="{Binding Folder}" Foreground="#8A919C" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/></StackPanel>
+          <StackPanel><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" MaxWidth="450" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="{Binding SelectedSectionTitle}" TextTrimming="CharacterEllipsis" MaxWidth="450" ToolTip="{Binding SelectedSectionTitle}" Foreground="#8A919C" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/></StackPanel>
         </Button>
         <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Button Content="&#xE710;" Click="MoreClick" ToolTip="Insert" AutomationProperties.Name="Insert" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Add Page" Click="AddPageClick" /><Separator/><MenuItem Header="Import PDF…" Click="ImportPdfClick" /><MenuItem Header="Insert Image…" Click="ImageClick" /></ContextMenu></Button.ContextMenu></Button>
@@ -38,17 +38,31 @@
           <Grid.RowDefinitions><RowDefinition Height="72"/><RowDefinition Height="*"/><RowDefinition Height="48"/></Grid.RowDefinitions>
           <Border Margin="16,14" Background="#EEF0F4" CornerRadius="9">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-              <Button Content="Pages" Click="SidebarTabClick" x:Name="PagesTab" Tag="Pages" Style="{StaticResource SidebarTab}" Background="White" Foreground="#326AE8"/>
+              <Button Content="Contents" Click="SidebarTabClick" x:Name="PagesTab" Tag="Pages" Style="{StaticResource SidebarTab}" Background="White" Foreground="#326AE8"/>
               <Button Content="Notebooks" Click="SidebarTabClick" x:Name="NotebooksTab" Tag="Notebooks" Style="{StaticResource SidebarTab}"/>
             </StackPanel>
           </Border>
           <Grid x:Name="PagesPanel" Grid.Row="1">
-            <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="60"/></Grid.RowDefinitions>
-            <DockPanel Margin="20,0,12,0">
-              <Button Content="&#xE712;" Click="MoreClick" ToolTip="Page Options" AutomationProperties.Name="Page Options" x:Name="PageOptionsButton" DockPanel.Dock="Right" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Duplicate Page" Click="DuplicatePageClick" /><MenuItem Header="Move Page Up" Click="MovePageUpClick" /><MenuItem Header="Move Page Down" Click="MovePageDownClick" /><Separator/><MenuItem Header="Paper Style…" Click="PageSettingsClick" /><MenuItem Header="Delete Page (Undo Available)" Click="DeletePageClick" /></ContextMenu></Button.ContextMenu></Button>
-              <TextBlock Text="{Binding PageCountText}" Foreground="#7B8492" FontSize="12" VerticalAlignment="Center"/>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="60"/></Grid.RowDefinitions>
+            <StackPanel Margin="12,0,12,8">
+              <DockPanel>
+                <Button x:Name="AddSectionButton" DockPanel.Dock="Right" Content="＋" Click="AddSectionClick" FontSize="20" ToolTip="Add a section for a topic" AutomationProperties.Name="Add Section"/>
+                <Button x:Name="SectionOptionsButton" DockPanel.Dock="Right" Content="&#xE712;" Click="MoreClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Section Options" AutomationProperties.Name="Section Options"><Button.ContextMenu><ContextMenu><MenuItem Header="Rename Section…" Click="RenameSectionClick"/><MenuItem Header="Move Section Up" Click="MoveSectionUpClick"/><MenuItem Header="Move Section Down" Click="MoveSectionDownClick"/><Separator/><MenuItem Header="Delete Section…" Click="DeleteSectionClick"/></ContextMenu></Button.ContextMenu></Button>
+                <TextBlock Text="SECTIONS" FontSize="11" FontWeight="SemiBold" Foreground="#7B8492" Margin="8,0,0,0" VerticalAlignment="Center"/>
+              </DockPanel>
+              <ListBox x:Name="SectionList" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection, Mode=OneWay}" SelectionChanged="SectionSelectionChanged" MaxHeight="156" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Notebook Sections">
+                <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
+                  <Setter Property="MinHeight" Value="48"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="10,6"/><Setter Property="Margin" Value="0,2"/>
+                  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="SectionRow" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SectionRow" Property="Background" Value="#EEF1F6"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="SectionRow" Property="Background" Value="#E8EFFD"/><Setter Property="Foreground" Value="#326AE8"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SectionRow" Property="BorderBrush" Value="#326AE8"/><Setter TargetName="SectionRow" Property="BorderThickness" Value="1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+                </Style></ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="25"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE8F1;" FontFamily="Segoe Fluent Icons" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="{Binding PageCountText}" FontSize="10" Foreground="#7B8492" Margin="0,2,0,0"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+              </ListBox>
+            </StackPanel>
+            <DockPanel Grid.Row="1" Margin="20,0,12,0">
+              <Button Content="&#xE712;" Click="MoreClick" ToolTip="Page Options" AutomationProperties.Name="Page Options" x:Name="PageOptionsButton" DockPanel.Dock="Right" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Duplicate Page" Click="DuplicatePageClick" /><MenuItem Header="Move Page Up" Click="MovePageUpClick" /><MenuItem Header="Move Page Down" Click="MovePageDownClick" /><MenuItem Header="Move Page to Section" SubmenuOpened="MovePageSectionMenuOpened"/><Separator/><MenuItem Header="Paper Style…" Click="PageSettingsClick" /><MenuItem Header="Delete Page (Undo Available)" Click="DeletePageClick" /></ContextMenu></Button.ContextMenu></Button>
+              <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding SelectedSectionTitle}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SelectedSectionTitle}" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="{Binding SectionPageCountText}" Foreground="#7B8492" FontSize="10" Margin="0,2,0,0"/></StackPanel>
             </DockPanel>
-            <ListBox Grid.Row="1" x:Name="ThumbnailList" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" SelectionChanged="ThumbnailSelectionChanged"
+            <ListBox Grid.Row="2" x:Name="ThumbnailList" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" SelectionChanged="ThumbnailSelectionChanged"
                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" Margin="6,0" AutomationProperties.Name="Page Thumbnails">
               <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
                 <Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,4,0,14"/>
@@ -66,7 +80,7 @@
                 <TextBlock Text="{Binding Caption}" HorizontalAlignment="Center" Foreground="#667387" FontSize="11" Margin="0,8,0,0"/>
               </StackPanel></DataTemplate></ListBox.ItemTemplate>
             </ListBox>
-            <Button Content="＋  Add Page" Click="AddPageClick" Grid.Row="2" Margin="22,6,22,10" Background="White" BorderThickness="1" BorderBrush="#DCE2EC" Foreground="#326AE8"/>
+            <Button Content="＋  Add Page" Click="AddPageClick" Grid.Row="3" Margin="22,6,22,10" Background="White" BorderThickness="1" BorderBrush="#DCE2EC" Foreground="#326AE8"/>
           </Grid>
           <Grid x:Name="NotebooksPanel" Grid.Row="1" Visibility="Collapsed" Margin="12,0">
             <Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="*"/><RowDefinition Height="60"/></Grid.RowDefinitions>
@@ -145,8 +159,8 @@
           </StackPanel>
           </StackPanel>
         </Border>
-        <Grid Grid.Row="1" x:Name="Viewport" Background="#EDEFF3" PreviewTouchDown="ViewportTouchDown" PreviewTouchMove="ViewportTouchMove" PreviewTouchUp="ViewportTouchUp" LostTouchCapture="ViewportLostTouch" PreviewMouseWheel="ViewportMouseWheel" PreviewMouseLeftButtonDown="ViewportPanDown" PreviewMouseMove="ViewportPanMove" PreviewMouseLeftButtonUp="ViewportPanUp">
-          <ListBox InputMethod.IsInputMethodEnabled="False" x:Name="PageList" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" ScrollViewer.PanningMode="None" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="1,1" Padding="36,28" Background="Transparent" SelectionChanged="PageSelectionChanged" AutomationProperties.Name="Continuous Notebook Pages">
+        <Grid Grid.Row="1" x:Name="Viewport" PreviewStylusDown="ViewportStylusDown" PreviewStylusUp="ViewportStylusUp" Background="#EDEFF3" PreviewTouchDown="ViewportTouchDown" PreviewTouchMove="ViewportTouchMove" PreviewTouchUp="ViewportTouchUp" LostTouchCapture="ViewportLostTouch" PreviewMouseWheel="ViewportMouseWheel" PreviewMouseLeftButtonDown="ViewportPanDown" PreviewMouseMove="ViewportPanMove" PreviewMouseLeftButtonUp="ViewportPanUp">
+          <ListBox InputMethod.IsInputMethodEnabled="False" x:Name="PageList" RequestBringIntoView="PageListRequestBringIntoView" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" ScrollViewer.PanningMode="None" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="1,1" Padding="36,28" Background="Transparent" SelectionChanged="PageSelectionChanged" AutomationProperties.Name="Continuous Notebook Pages">
             <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,28"/><Setter Property="Focusable" Value="False"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><ContentPresenter/></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate><DataTemplate><StackPanel>
@@ -154,6 +168,12 @@
               <TextBlock Text="{Binding Number, StringFormat={}—  {0}  —}" HorizontalAlignment="Center" FontSize="11" Foreground="#98A1B0" Margin="0,14,0,0" IsHitTestVisible="False"/>
             </StackPanel></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="450" Margin="24">
+            <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Pages.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+            <TextBlock Text="{Binding SelectedSectionTitle}" TextTrimming="CharacterEllipsis" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="Start this topic with a fresh page." Foreground="#7B8492" Margin="0,12,0,24" TextWrapping="Wrap" TextAlignment="Center"/>
+            <Button x:Name="EmptySectionAddPageButton" Content="＋  Add Page" Click="AddPageClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center"/>
+          </StackPanel>
           <Border x:Name="BusyOverlay" Background="#DDEDEFF3" Visibility="{Binding IsBusy, Converter={StaticResource BoolVisibility}}"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><ProgressBar IsIndeterminate="True" Width="220" Height="4"/><TextBlock Text="{Binding Operation}" Margin="0,18,0,0" FontSize="16" HorizontalAlignment="Center"/></StackPanel></Border>
           <Button x:Name="ExitFocusButton" Content="Exit Focus" Click="FocusClick" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Background="#EEFFFFFF" ToolTip="Exit Focus Mode (F11 or Esc)"/>
         </Grid>
