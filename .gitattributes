@@ -5,6 +5,7 @@
 *.md text eol=lf
 *.yml text eol=lf
 *.ps1 text eol=crlf
+*.iss text eol=crlf
 *.png binary
 *.ico binary
 # Preserve upstream license bytes and their documented checksums.

@@ -24,3 +24,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Windows installer
+
+The EXE installer is built with [Inno Setup 7.1.0](https://github.com/jrsoftware/issrc/releases/tag/is-7_1_0), by Jordan Russell and Martijn Laan. The installed distribution includes the original Inno Setup license at `third-party/INNO-SETUP-LICENSE.txt`. Inno Setup is a build tool; its compiler and local installation files are not part of Moye's source tree or application payload.

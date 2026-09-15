@@ -4,7 +4,7 @@
 
 Moye should support a complete university workflow: write during a lecture, annotate course material, organize knowledge, and revisit it without losing time or notes. This roadmap preserves all 41 requested feature areas. It is a development plan, not a claim that every listed feature is available.
 
-This status reflects **Moye 1.6.1**, reviewed on **2026-09-14**. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
+This status reflects **Moye 1.6.2**, reviewed on **2026-09-15**. Version 1.6.2 adds an EXE installer with automatic desktop and Start menu shortcuts; application features remain those of 1.6.1. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
 
 Version 1.6.0 adds an explicit Type action, contextual text controls and whole-box formatting. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; publication does not mark those outstanding checks complete.
 

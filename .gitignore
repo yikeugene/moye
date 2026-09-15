@@ -66,6 +66,7 @@ id_ed25519
 # Packages belong in GitHub Releases, not the source tree.
 *.zip
 *.zip.sha256
+*.exe.sha256
 *.7z
 *.tar
 *.tar.gz
