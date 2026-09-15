@@ -1,14 +1,14 @@
 # Moye user guide
 
-This guide describes the English interface in Moye 1.6.2 for Windows 11 x64.
+This guide describes the English interface in Moye 1.7.0 for Windows 11 x64.
 
 Version 1.6.0 adds the **Type** button and text-formatting workflow described below.
 
-The section workflow described here is an unreleased source change and is not included in the 1.6.2 installer.
+**Before upgrading:** create a `.moye` backup using your current version and keep it separately. Moye 1.7.0 upgrades libraries to schema 2 and writes format 2 backups; Moye 1.6.2 and earlier cannot open those files. Uninstalling does not reverse this migration.
 
 ## Install, update and uninstall
 
-Download `Moye-1.6.2-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
+Download `Moye-1.7.0-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
 
 Open the **Moye** desktop shortcut after installation. When updating, close the app and run the newer installer. Existing notes stay in `%LOCALAPPDATA%\Moye`; the installer does not move or replace them. If you previously used a portable ZIP with the default library, the installed app uses that same library. A custom `--data-dir` library still needs its custom launch argument.
 
@@ -133,7 +133,7 @@ Encrypted documents, interactive forms, digital signatures, and internal or cros
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. The unreleased section workflow reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; older published builds cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Moye 1.7.0 reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; Moye 1.6.2 and earlier cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
 
 Writing preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`. This file contains presets and writing settings, and is **not included in `.moye` backups**. For a library started with `--data-dir`, both the database and preferences stay in that selected directory. A damaged settings file is preserved before defaults are offered; an unreadable or unsupported-version file is protected from replacement. A writing-settings warning offers details and retry when available. When an existing preferences file cannot be read or belongs to a newer version, tool changes apply to the current session only; notebooks still save and the app can close normally. Restart after resolving that file. A later write failure retains pending settings for retry.
 
@@ -170,6 +170,10 @@ If saving fails, pending content stays in memory. Use **Retry Save**, or export 
 | Bold / italic for the whole text box while typing | `Ctrl+B` / `Ctrl+I` |
 | Finish typing | `Ctrl+Enter` |
 | Leave text-box focus | `Esc` |
+
+## Startup and operation errors
+
+Operation errors include the underlying cause and, when the log can be written, its location. The log is `error.log` beside the notebook database, including for a custom `--data-dir` library. If Windows application control blocks a required component, install the latest Moye update; if the block persists, provide the log to support or your administrator. Keep your notebook database and journal files in place. Logs can contain local paths and operation details; review them before sharing.
 
 ## Device checks still needed
 

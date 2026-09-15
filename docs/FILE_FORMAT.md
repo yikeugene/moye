@@ -1,10 +1,10 @@
 # Moye notebook formats
 
-The current source introduces sections after application version 1.6.1. Application versions, SQLite schema versions and backup format versions are independent.
+Moye 1.7.0 introduces notebook sections. Application versions, SQLite schema versions and backup format versions are independent.
 
 ## Compatibility
 
-| File | Current writer | Current reader | Older published builds |
+| File | Moye 1.7.0 writer | Moye 1.7.0 reader | Moye 1.6.2 and earlier |
 |---|---|---|---|
 | SQLite library | Schema 2 | Migrates schema 0/1; reads 2 | Reject schema 2 |
 | `.moye` backup | Format 2 | Reads 1 and 2 | Reject format 2 |

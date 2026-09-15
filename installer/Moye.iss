@@ -26,6 +26,7 @@ DisableProgramGroupPage=yes
 DisableWelcomePage=no
 WizardStyle=modern
 LicenseFile=..\LICENSE
+InfoBeforeFile=UpgradeNotes.txt
 SetupIconFile=..\src\Moye\Assets\Moye.ico
 UninstallDisplayIcon={app}\Moye.exe
 VersionInfoVersion={#MoyeVersion}.0

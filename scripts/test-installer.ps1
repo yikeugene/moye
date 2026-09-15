@@ -67,6 +67,7 @@ try {
         Invoke-MoyeSetup $MoyeInstaller @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', ('/DIR="' + $MoyeInstallPath + '"'), ('/LOG="' + (Join-Path $MoyeSmokeRoot ($MoyePass + '.log')) + '"'))
         $MoyeInstalledOnce = $true
         Assert-MoyeInstalled
+        & (Join-Path $PSScriptRoot 'test-package.ps1') -PackagePath $MoyeInstallPath
         Write-Host "$MoyePass passed: desktop and Start menu shortcuts, exact payload, uninstall registration, and unchanged notebook data."
     }
     $MoyeUninstaller = Join-Path $MoyeInstallPath 'unins000.exe'

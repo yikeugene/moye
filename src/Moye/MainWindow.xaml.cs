@@ -18,6 +18,7 @@ namespace Moye;
 public partial class MainWindow : Window
 {
     public MainViewModel ViewModel { get; }
+    private readonly ErrorReporter _errors;
     private readonly Dictionary<Border, PageEditor> _editors = [];
     private readonly Dictionary<Border, CancellationTokenSource> _loading = [];
     private readonly Dictionary<int, (TouchDevice Device, Point Point)> _touches = [];
@@ -44,8 +45,9 @@ public partial class MainWindow : Window
     private sealed record PageZoomAnchor(PageViewModel Page, Point PagePoint, Point ViewportPoint);
     private bool AnyPenDown => IsViewportPenContactActive || _editors.Values.Any(e => e.IsInputActive);
 
-    public MainWindow(INotebookRepository repository, WritingPreferencesStore? preferencesStore = null)
+    public MainWindow(INotebookRepository repository, WritingPreferencesStore? preferencesStore = null, ErrorReporter? errors = null)
     {
+        _errors = errors ?? new ErrorReporter(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Moye", "error.log"));
         _preferencesStore = preferencesStore ?? new WritingPreferencesStore();
         ViewModel = new(repository); InitializeComponent(); DataContext = ViewModel;
         InitializeInputStability();
@@ -85,7 +87,7 @@ public partial class MainWindow : Window
         ViewModel.Operation = message; ViewModel.IsBusy = true;
         try { await action(); }
         catch (OperationCanceledException) { ViewModel.Status = "Operation canceled"; }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Unable to complete the operation", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { MessageBox.Show(this, _errors.Report(ex), "Unable to complete the operation", MessageBoxButton.OK, MessageBoxImage.Warning); }
         finally { ViewModel.IsBusy = false; }
     }
 

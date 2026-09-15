@@ -23,23 +23,36 @@ public sealed record LibraryLocation(string DatabasePath, string PreferencesPath
 public partial class App : Application
 {
     private System.Threading.Mutex? _instanceMutex;
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         // UI language is English; document text and the user's number/date formats are preserved.
         System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
         base.OnStartup(e);
+        var checkIndex = Array.IndexOf(e.Args, "--check-storage");
+        if (checkIndex >= 0)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            try
+            {
+                if (checkIndex + 1 >= e.Args.Length) throw new ArgumentException("--check-storage requires a new test directory.");
+                await StorageSelfCheck.RunAsync(e.Args[checkIndex + 1]);
+                Shutdown(0);
+            }
+            catch (Exception exception) { Console.Error.WriteLine(exception); Shutdown(1); }
+            return;
+        }
         // Keep one writer/UI per library. Test launches can use an isolated directory.
         var dataIndex = Array.IndexOf(e.Args, "--data-dir");
         var location = LibraryLocation.Resolve(dataIndex >= 0 && dataIndex + 1 < e.Args.Length ? e.Args[dataIndex + 1] : null);
+        var errors = new ErrorReporter(Path.Combine(Path.GetDirectoryName(location.DatabasePath)!, "error.log"));
         _instanceMutex = new(true, location.MutexName, out bool first);
         if (!first) { MessageBox.Show("Moye is already open. Please use the existing window.", "Moye"); Shutdown(); return; }
         DispatcherUnhandledException += (_, args) =>
         {
-            try { Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Moye")); File.AppendAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Moye", "error.log"), $"{DateTimeOffset.Now:O} {args.Exception}\n"); } catch { }
-            MessageBox.Show("The operation could not be completed. Previously saved notes are unaffected.\n\n" + args.Exception.Message, "Moye", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("The operation could not be completed. Previously saved notes are unaffected.\n\n" + errors.Report(args.Exception), "Moye", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
-        var window = new MainWindow(new SqliteNotebookRepository(location.DatabasePath), new WritingPreferencesStore(location.PreferencesPath));
+        var window = new MainWindow(new SqliteNotebookRepository(location.DatabasePath), new WritingPreferencesStore(location.PreferencesPath), errors);
         MainWindow = window; window.Show();
     }
     protected override void OnExit(ExitEventArgs e) { _instanceMutex?.Dispose(); base.OnExit(e); }

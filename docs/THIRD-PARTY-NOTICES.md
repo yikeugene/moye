@@ -6,8 +6,8 @@ Moye's original code is covered by the [MIT License](../LICENSE). The following 
 |---|---|---|---|
 | Microsoft.Data.Sqlite / Microsoft.Data.Sqlite.Core | 10.0.0 | Microsoft Corporation; MIT | [Source](https://github.com/dotnet/efcore) |
 | PDFsharp-WPF | 6.2.4 | Copyright 2026 empira; MIT | [Source](https://github.com/empira/PDFsharp) |
-| SQLitePCLRaw bundle, core, provider and native distribution | 2.1.13 | Copyright 2014-2024 SourceGear, LLC; Apache-2.0 | [Source](https://github.com/ericsink/SQLitePCL.raw) |
-| SQLite native engine | See packaged runtime version | Public domain | [Copyright dedication](https://sqlite.org/copyright.html) |
+| SQLitePCLRaw bundle, configuration, core and provider | 3.0.5 | Copyright 2014-2026 SourceGear, LLC; Apache-2.0 | [Source](https://github.com/ericsink/SQLitePCL.raw) |
+| SQLite native engine (SQLite NuGet package) | 3.53.4 | Public domain; package copyright 2014-2026 SourceGear, LLC | [Copyright dedication](https://sqlite.org/copyright.html) |
 | Microsoft.Extensions.Logging.Abstractions and DependencyInjection.Abstractions | See package manifest | .NET Foundation and Contributors; MIT | [Source](https://github.com/dotnet/runtime) |
 | .NET / Windows Desktop runtime and WinRT projections | See package manifest | Microsoft / .NET Foundation and Contributors; accompanying license terms and notices | [Source](https://github.com/dotnet/runtime) |
 

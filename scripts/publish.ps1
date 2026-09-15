@@ -47,6 +47,7 @@ try {
     foreach ($MoyeRequired in @('Moye.exe', 'Moye.dll', 'coreclr.dll', 'PresentationFramework.dll', 'e_sqlite3.dll')) {
         if (-not (Test-Path -LiteralPath (Join-Path $MoyeStaging $MoyeRequired) -PathType Leaf)) { throw "The self-contained package is missing $MoyeRequired." }
     }
+    & (Join-Path $PSScriptRoot 'test-package.ps1') -PackagePath $MoyeStaging
     Copy-Item -LiteralPath (Join-Path $MoyeEnvironment.Root 'README.md') -Destination $MoyeStaging
     Copy-Item -LiteralPath (Join-Path $MoyeEnvironment.Root 'ROADMAP.md') -Destination $MoyeStaging
     Copy-Item -LiteralPath (Join-Path $MoyeEnvironment.Root 'LICENSE') -Destination $MoyeStaging
