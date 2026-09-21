@@ -8,6 +8,10 @@ This status reflects **Moye 1.7.0**, reviewed on **2026-09-15**. Version 1.7.0 a
 
 Version 1.6.0 adds an explicit Type action, contextual text controls and whole-box formatting. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; publication does not mark those outstanding checks complete.
 
+The current local source also adds visual color palettes for ink, pen presets and text, plus a draggable thickness slider with a live pen/highlighter preview. These changes are not yet included in the published 1.7.0 download; physical touch and pen interaction with the new controls still needs device validation.
+
+Local finger-navigation work combines touch packets once per display update, adds elapsed-time swipe inertia, and defers thumbnail work during movement. Synthetic tests cover retained movement, pinch/contact transitions, boundary reversal and cancellation; these are correctness checks, not measured hardware frame-rate or latency acceptance.
+
 ## Status and evidence
 
 - **Existing:** the described behavior is implemented. This does not establish performance on every device.

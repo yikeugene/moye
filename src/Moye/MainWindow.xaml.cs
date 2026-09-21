@@ -21,9 +21,9 @@ public partial class MainWindow : Window
     private readonly ErrorReporter _errors;
     private readonly Dictionary<Border, PageEditor> _editors = [];
     private readonly Dictionary<Border, CancellationTokenSource> _loading = [];
-    private readonly Dictionary<int, (TouchDevice Device, Point Point)> _touches = [];
+    private readonly Dictionary<int, TouchDevice> _touches = [];
     private readonly HashSet<int> _blockedTouches = [];
-    private readonly DispatcherTimer _thumbnailTimer = new() { Interval = TimeSpan.FromMilliseconds(650) };
+    private readonly DispatcherTimer _thumbnailTimer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(150) };
     private readonly DispatcherTimer _pdfZoomTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly HashSet<PageEditor> _dirtyThumbnails = [];
     private InkTool _tool = InkTool.Pen;
@@ -38,8 +38,6 @@ public partial class MainWindow : Window
     private bool _sidebarBeforeFocus;
     private ScrollViewer? _scroll;
     private long _ignoreTouchUntil;
-    private double _pinchDistance;
-    private Point _touchCenter;
     private bool _zoomNavigationActive;
     private int _zoomNavigationRevision;
     private sealed record PageZoomAnchor(PageViewModel Page, Point PagePoint, Point ViewportPoint);
@@ -51,6 +49,7 @@ public partial class MainWindow : Window
         _preferencesStore = preferencesStore ?? new WritingPreferencesStore();
         ViewModel = new(repository); InitializeComponent(); DataContext = ViewModel;
         InitializeInputStability();
+        InitializeTouchNavigation();
         InitializeWritingUi();
         InitializeTypingUi();
         Width = Math.Min(1400, SystemParameters.WorkArea.Width - 24);
@@ -58,20 +57,11 @@ public partial class MainWindow : Window
         SystemEvents.PowerModeChanged += PowerModeChanged;
         PageList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(DocumentScrolled));
         Viewport.SizeChanged += (_, _) => ScheduleFitWidth();
-        ViewModel.DocumentReplaced += (_, _) => { _typingRequest++; _scroll = null; SyncPageTemplate(); SelectLibraryCurrent(); UpdateTextToolbar(); };
+        ViewModel.DocumentReplaced += (_, _) => { ClearTouches(); ResetThumbnailWork(); _typingRequest++; _scroll = null; SyncPageTemplate(); SelectLibraryCurrent(); UpdateTextToolbar(); };
         ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.HasSaveError)) ApplyFocusChrome(); };
         ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.Zoom)) { foreach (var editor in _editors.Values) editor.LayoutTransform = new ScaleTransform(ViewModel.Zoom, ViewModel.Zoom); _pdfZoomTimer.Stop(); _pdfZoomTimer.Start(); } };
-        _pdfZoomTimer.Tick += async (_, _) => { _pdfZoomTimer.Stop(); await RefreshVisiblePdfsAsync(); };
-        _thumbnailTimer.Tick += (_, _) =>
-        {
-            _thumbnailTimer.Stop();
-            foreach (var editor in _dirtyThumbnails.ToArray())
-            {
-                if (editor.IsInputActive) continue;
-                UpdateThumbnail(editor); _dirtyThumbnails.Remove(editor);
-            }
-            if (_dirtyThumbnails.Count > 0) _thumbnailTimer.Start();
-        };
+        _pdfZoomTimer.Tick += async (_, _) => { if (DeferViewportBackgroundWork) return; _pdfZoomTimer.Stop(); await RefreshVisiblePdfsAsync(); };
+        _thumbnailTimer.Tick += ProcessThumbnailWork;
     }
 
     private async void WindowLoaded(object sender, RoutedEventArgs e)
@@ -101,7 +91,7 @@ public partial class MainWindow : Window
         ViewModel.IsBusy = true; ViewModel.Operation = "Saving before closing…";
         try
         {
-            EndTemporaryPan(); CommitEditors(); await ViewModel.Autosave.FlushAsync(); await SavePreferencesAsync(true);
+            EndTemporaryPan(); ClearTouches(); CommitEditors(); await ViewModel.Autosave.FlushAsync(); await SavePreferencesAsync(true);
             _closing = true; _thumbnailTimer.Stop(); _pdfZoomTimer.Stop(); SystemEvents.PowerModeChanged -= PowerModeChanged;
             foreach (var cts in _loading.Values) cts.Cancel();
             ViewModel.Dispose(); _ = Dispatcher.BeginInvoke(Close);
@@ -194,6 +184,8 @@ public partial class MainWindow : Window
     private void PageSelectionChanged(object sender, SelectionChangedEventArgs e) { SyncPageTemplate(); UpdateTextToolbar(); }
     private void DocumentScrolled(object sender, ScrollChangedEventArgs e)
     {
+        if (!ReferenceEquals(e.OriginalSource, GetScroll())) return;
+        _touchScrollPending = false;
         UpdateVisiblePageSelection();
     }
     private void UpdateVisiblePageSelection()
@@ -212,7 +204,7 @@ public partial class MainWindow : Window
             _suppressPageSelection = true; ViewModel.SelectedPage = visible; SyncPageTemplate(); _suppressPageSelection = false;
         }
     }
-    private void ScrollToSelected() { if (ViewModel.SelectedPage is not null) PageList.ScrollIntoView(ViewModel.SelectedPage); }
+    private void ScrollToSelected() { ClearTouches(); if (ViewModel.SelectedPage is not null) PageList.ScrollIntoView(ViewModel.SelectedPage); }
 
     private void PageHostLoaded(object sender, RoutedEventArgs e) => AttachPage((Border)sender);
     private void PageHostDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -246,7 +238,7 @@ public partial class MainWindow : Window
                 var bitmap = await ViewModel.Pdf.RenderAsync(item.Page, Math.Min(2, ViewModel.Zoom * VisualTreeHelper.GetDpi(this).DpiScaleX), cts.Token);
                 if (!cts.IsCancellationRequested) editor.SetPdfBackground(bitmap);
             }
-            if (!cts.IsCancellationRequested) UpdateThumbnail(editor);
+            if (!cts.IsCancellationRequested && item.Thumbnail is null) QueueThumbnail(editor);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!cts.IsCancellationRequested) ViewModel.Status = "Unable to load this page: " + ex.Message; }
@@ -267,7 +259,7 @@ public partial class MainWindow : Window
     private void EditorChanged(object? sender, EventArgs e)
     {
         if (sender is not PageEditor editor || ViewModel.Document?.Pages.Contains(editor.Page) != true) return;
-        ViewModel.Changed(); _dirtyThumbnails.Add(editor); _thumbnailTimer.Start();
+        InvalidateThumbnail(editor); ViewModel.Changed(); QueueThumbnail(editor);
         if (ReferenceEquals(editor, CurrentEditor)) UpdateTextToolbar();
     }
     private void EditorPenContactChanged(object? sender, EventArgs e)
@@ -275,7 +267,7 @@ public partial class MainWindow : Window
         if (sender is PageEditor { IsPenDown: true }) { _ignoreTouchUntil = Environment.TickCount64 + 200; ClearTouches(true); }
         else { _ignoreTouchUntil = Environment.TickCount64 + 120; ScheduleFitWidth(); }
     }
-    private void EditorVisualChanged(object? sender, EventArgs e) { if (sender is PageEditor editor) { _dirtyThumbnails.Add(editor); _thumbnailTimer.Start(); } }
+    private void EditorVisualChanged(object? sender, EventArgs e) { if (sender is PageEditor editor) { InvalidateThumbnail(editor); QueueThumbnail(editor); } }
     private void EditorAssetFailed(object? sender, string message) => ViewModel.Status = "Unable to load image: " + message;
     private void PageHostMouseDown(object sender, MouseButtonEventArgs e)
     {
@@ -299,32 +291,17 @@ public partial class MainWindow : Window
         var item = ViewModel.Pages.FirstOrDefault(p => ReferenceEquals(p.Page, editor.Page));
         if (item is not null && editor.IsLoaded && !editor.IsInputActive) item.Thumbnail = DecodeBitmap(editor.CreateThumbnail(180));
     }
-    private async void ThumbnailLoaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement element || element.DataContext is not PageViewModel item || item.Thumbnail is not null) return;
-        try
-        {
-            var editor = new PageEditor(item.Page.Snapshot(), id => ViewModel.Repository.GetAssetAsync(id));
-            editor.VisualContentChanged += (_, _) => { if (!_closing && ViewModel.Pages.Contains(item)) item.Thumbnail = DecodeBitmap(editor.CreateThumbnail(180)); };
-            if (item.Page.Pdf is not null)
-            {
-                var image = await ViewModel.Pdf.RenderAsync(item.Page, .2);
-                editor.SetPdfBackground(image);
-            }
-            if (item.Thumbnail is null) item.Thumbnail = DecodeBitmap(editor.CreateThumbnail(180));
-        }
-        catch { /* Full page reports load failures when opened. */ }
-    }
-
     private async Task RefreshVisiblePdfsAsync()
     {
         var zoom = ViewModel.Zoom;
         foreach (var pair in _editors.ToArray())
         {
+            if (DeferViewportBackgroundWork) { _pdfZoomTimer.Start(); return; }
             if (_closing || pair.Value.Page.Pdf is null || !_loading.TryGetValue(pair.Key, out var cts)) continue;
             try
             {
                 var bitmap = await ViewModel.Pdf.RenderAsync(pair.Value.Page, zoom * VisualTreeHelper.GetDpi(this).DpiScaleX, cts.Token);
+                if (DeferViewportBackgroundWork) { _pdfZoomTimer.Start(); return; }
                 if (!cts.IsCancellationRequested && zoom == ViewModel.Zoom && _editors.TryGetValue(pair.Key, out var current) && ReferenceEquals(current, pair.Value)) current.SetPdfBackground(bitmap);
             }
             catch (OperationCanceledException) { }
@@ -438,6 +415,7 @@ public partial class MainWindow : Window
         }
         CurrentColor.Fill = new SolidColorBrush(_color);
         CurrentWidth.Text = (_width * 25.4 / 96).ToString("0.##", CultureInfo.InvariantCulture);
+        SyncStrokeWidthPreview();
         foreach (var option in new[] { PointEraseOption, StrokeEraseOption })
         {
             bool selected = Enum.Parse<InkTool>((string)option.Tag) == _eraserTool;
@@ -465,17 +443,36 @@ public partial class MainWindow : Window
     private void CustomColorClick(object sender, RoutedEventArgs e)
     {
         CloseSettingsPopups();
-        var dialog = new InputDialog(this, "Custom Color", ("Hex color (for example, #326AE8)", $"#{_color.R:X2}{_color.G:X2}{_color.B:X2}"));
+        var dialog = new ColorPickerDialog(this, _color, "Ink Color");
         if (dialog.ShowDialog() != true) return;
-        try { _color = (Color)ColorConverter.ConvertFromString(dialog.Values[0]); if (_tool is InkTool.Lasso or InkTool.Text or InkTool.Select) CurrentEditor?.ApplyColorToSelection(_color); UpdateTool(); }
-        catch { MessageBox.Show(this, "Enter a valid hex color, such as #326AE8.", "Invalid Color"); }
+        _color = dialog.SelectedColor;
+        if (_tool is InkTool.Lasso or InkTool.Text or InkTool.Select) CurrentEditor?.ApplyColorToSelection(_color);
+        RememberWorkingPreset(); UpdateTool();
     }
-    private void WidthChanged(object sender, SelectionChangedEventArgs e)
+    private void WidthChanged(object? sender, EventArgs e)
     {
-        if (_syncingPreferences) return;
-        if (WidthPicker?.SelectedItem is ComboBoxItem item) _width = double.Parse((string)item.Tag, CultureInfo.InvariantCulture);
-        if (_ready) { if (_tool == InkTool.Lasso) CurrentEditor?.ApplyWidthToSelection(_width); UpdateTool(); }
+        if (_syncingPreferences || WidthPicker is null) return;
+        _width = WidthPicker.StrokeWidth;
+        // Only preview changes while dragging. A selected stroke changes once
+        // at release, so one slider gesture remains one notebook undo step.
+        CurrentWidth.Text = (_width * 25.4 / 96).ToString("0.##", CultureInfo.InvariantCulture);
+        if (_ready) foreach (var editor in _editors.Values) ConfigureEditor(editor);
     }
+    private void WidthCommitted(object? sender, EventArgs e)
+    {
+        if (_syncingPreferences || !_ready) return;
+        if (_tool == InkTool.Lasso) CurrentEditor?.ApplyWidthToSelection(_width);
+        RememberWorkingPreset(); UpdateTool();
+    }
+    private void SyncStrokeWidthPreview()
+    {
+        if (WidthPicker is null) return;
+        // Do not reset a pending drag's commit marker while refreshing color.
+        if (WidthPicker.StrokeWidth != _width) WidthPicker.StrokeWidth = _width;
+        WidthPicker.ConfigurePreview(_color, (_tool is InkTool.Pen or InkTool.Highlighter ? _tool : _workingPreset.Tool) == InkTool.Highlighter,
+            _workingPreset.Opacity, _workingPreset.PressureSensitivity, _workingPreset.Smoothing);
+    }
+    private void PenSettingsClosed(object? sender, EventArgs e) => WidthPicker?.CommitPendingWidth();
     private void UndoClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.Undo(); }
     private void RedoClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.Redo(); }
     private void AddPageClick(object sender, RoutedEventArgs e) => ShowPaperPicker(true);
@@ -589,7 +586,7 @@ public partial class MainWindow : Window
     private async void RetrySaveClick(object sender, RoutedEventArgs e) => await RunAsync("Retrying save…", async () => { await ViewModel.Autosave.RetryAsync(); await SavePreferencesAsync(true); });
     private void MoreClick(object sender, RoutedEventArgs e) { var button = (Button)sender; button.ContextMenu.PlacementTarget = button; button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true; }
     private void HelpClick(object sender, RoutedEventArgs e) => MessageBox.Show(this,
-        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nAll Notes saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics; Page Options moves pages between sections.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Presets for your everyday pens; press 1–9 to switch.\nPen Settings controls thickness, opacity, pressure and Draw and Hold.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nShare exports PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
+        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nAll Notes saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics; Page Options moves pages between sections.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Presets for your everyday pens; press 1–9 to switch.\nPen Settings offers color swatches and a Thickness slider with preview.\nMore Colors opens the visual palette. Presets also controls\nopacity, pressure and smoothing. Draw and Hold straightens lines.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nShare exports PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
 
     private void SidebarTabClick(object sender, RoutedEventArgs e) => ShowSidebarTab((string)((Button)sender).Tag == "Notebooks");
     private async void ShowNotebooksClick(object sender, RoutedEventArgs e)
@@ -630,7 +627,7 @@ public partial class MainWindow : Window
     }
     private void ZoomInClick(object sender, RoutedEventArgs e) => ChangeZoom(ViewModel.Zoom * 1.15, new Point(Viewport.ActualWidth / 2, Viewport.ActualHeight / 2));
     private void ZoomOutClick(object sender, RoutedEventArgs e) => ChangeZoom(ViewModel.Zoom / 1.15, new Point(Viewport.ActualWidth / 2, Viewport.ActualHeight / 2));
-    private void FitWidthClick(object sender, RoutedEventArgs e) => FitWidth();
+    private void FitWidthClick(object sender, RoutedEventArgs e) { ClearTouches(); FitWidth(); }
     private void FitWidth()
     {
         if (ViewModel.IsLibraryVisible || AnyPenDown || ViewModel.SelectedPage is not { } target || Viewport.ActualWidth < 100) return;
@@ -652,7 +649,7 @@ public partial class MainWindow : Window
     {
         if (!_fitWidthActive || _fitWidthPending) return;
         _fitWidthPending = true;
-        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => { _fitWidthPending = false; if (_fitWidthActive) FitWidth(); }));
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => { _fitWidthPending = false; if (_fitWidthActive && _touchNavigation.Count == 0 && !_touchNavigation.IsInertiaActive) FitWidth(); }));
     }
     private void ClearFitWidth()
     {
@@ -663,6 +660,7 @@ public partial class MainWindow : Window
     private void ActualSizeClick(object sender, RoutedEventArgs e) => ChangeZoom(1, new Point(Viewport.ActualWidth / 2, Viewport.ActualHeight / 2));
     private void FitPage()
     {
+        ClearTouches();
         if (AnyPenDown || ViewModel.SelectedPage is not { } target || Viewport.ActualWidth < 100 || Viewport.ActualHeight < 140) return;
         ClearFitWidth();
         var revision = BeginZoomNavigation();
@@ -682,6 +680,7 @@ public partial class MainWindow : Window
     }
     private void ChangeZoom(double zoom, Point anchor)
     {
+        if (!_applyingTouchFrame) ClearTouches();
         if (AnyPenDown || !double.IsFinite(zoom)) return;
         ClearFitWidth();
         if (Math.Abs(Math.Clamp(zoom, .25, 4) - ViewModel.Zoom) < .000001) return;
@@ -799,57 +798,15 @@ public partial class MainWindow : Window
     private ScrollViewer? GetScroll() => _scroll ??= Descendants<ScrollViewer>(PageList).FirstOrDefault();
     private void ViewportMouseWheel(object sender, MouseWheelEventArgs e)
     {
+        ClearTouches();
         if (AnyPenDown) { e.Handled = true; return; }
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { ChangeZoom(ViewModel.Zoom * (e.Delta > 0 ? 1.1 : 1 / 1.1), e.GetPosition(Viewport)); e.Handled = true; }
     }
 
-    private void ViewportTouchDown(object sender, TouchEventArgs e)
-    {
-        e.Handled = true;
-        if (AnyPenDown || Environment.TickCount64 < _ignoreTouchUntil) { _blockedTouches.Add(e.TouchDevice.Id); return; }
-        _blockedTouches.Remove(e.TouchDevice.Id);
-        _touches[e.TouchDevice.Id] = (e.TouchDevice, e.GetTouchPoint(Viewport).Position);
-        e.TouchDevice.Capture(Viewport); ResetTouchBaseline();
-    }
-    private void ViewportTouchMove(object sender, TouchEventArgs e)
-    {
-        e.Handled = true;
-        if (AnyPenDown || _blockedTouches.Contains(e.TouchDevice.Id) || !_touches.TryGetValue(e.TouchDevice.Id, out var previous)) return;
-        var position = e.GetTouchPoint(Viewport).Position; _touches[e.TouchDevice.Id] = (e.TouchDevice, position);
-        var scroll = GetScroll(); if (scroll is null) return;
-        if (_touches.Count == 1)
-        {
-            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + previous.Point.Y - position.Y);
-            scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset + previous.Point.X - position.X);
-        }
-        else if (_touches.Count == 2)
-        {
-            var points = _touches.Values.Select(t => t.Point).ToArray(); var distance = (points[0] - points[1]).Length; var center = new Point((points[0].X + points[1].X) / 2, (points[0].Y + points[1].Y) / 2);
-            if (_pinchDistance > 20 && distance > 20) ChangeZoom(ViewModel.Zoom * distance / _pinchDistance, center);
-            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + _touchCenter.Y - center.Y); scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset + _touchCenter.X - center.X);
-            _pinchDistance = distance; _touchCenter = center;
-        }
-    }
-    private void ViewportTouchUp(object sender, TouchEventArgs e)
-    {
-        e.Handled = true; _touches.Remove(e.TouchDevice.Id); _blockedTouches.Remove(e.TouchDevice.Id);
-        if (e.TouchDevice.Captured == Viewport) e.TouchDevice.Capture(null); ResetTouchBaseline();
-    }
-    private void ViewportLostTouch(object sender, TouchEventArgs e) { _touches.Remove(e.TouchDevice.Id); ResetTouchBaseline(); }
-    private void ResetTouchBaseline()
-    {
-        if (_touches.Count != 2) { _pinchDistance = 0; return; }
-        var p = _touches.Values.Select(t => t.Point).ToArray(); _pinchDistance = (p[0] - p[1]).Length; _touchCenter = new Point((p[0].X + p[1].X) / 2, (p[0].Y + p[1].Y) / 2);
-    }
-    private void ClearTouches(bool block = false)
-    {
-        var devices = _touches.Values.ToArray();
-        if (block) foreach (var id in _touches.Keys) _blockedTouches.Add(id); else _blockedTouches.Clear();
-        _touches.Clear(); foreach (var touch in devices) if (touch.Device.Captured == Viewport) touch.Device.Capture(null); _pinchDistance = 0;
-    }
     private async void WindowKeyDown(object sender, KeyEventArgs e)
     {
         if (!_ready || ViewModel.IsBusy) return;
+        ClearTouches();
         // Library search keeps its text shortcuts; editor commands cannot act
         // on the notebook retained in memory while the home screen is visible.
         if (ViewModel.IsLibraryVisible) return;

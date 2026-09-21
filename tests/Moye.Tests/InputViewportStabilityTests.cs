@@ -7,6 +7,7 @@ using System.Windows.Ink;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Moye.Controls;
+using Xunit.Abstractions;
 
 namespace Moye.Tests;
 
@@ -14,7 +15,7 @@ namespace Moye.Tests;
 /// Real WPF layout and routed BringIntoView requests in a detached visual tree.
 /// These reproduce scrolling and coordinate changes, not hardware pen delivery.
 /// </summary>
-public sealed class InputViewportStabilityTests
+public sealed class InputViewportStabilityTests(ITestOutputHelper output)
 {
     [Fact]
     public void TouchdownGuardKeepsPartiallyVisiblePageAndInkCoordinatesStationary()
@@ -124,6 +125,112 @@ public sealed class InputViewportStabilityTests
             fixture.Layout();
             Assert.Equal(originalOffset, fixture.Scroll.VerticalOffset, 6);
             Assert.Equal(originalOrigin, fixture.PageOrigin);
+        });
+    }
+
+    [Fact]
+    public void CoalescedTouchPacketsPreserveMovementBeforeScrollViewerProcessesLayout()
+    {
+        Sta(() =>
+        {
+            var fixture = new PagesFixture();
+            fixture.SetOffset(300);
+            var originalOffset = fixture.Scroll.VerticalOffset;
+
+            // Reproduce the old packet handler: ScrollToVerticalOffset queues a
+            // command, so all three packets read the same displayed offset.
+            for (var packet = 0; packet < 3; packet++)
+                fixture.Scroll.ScrollToVerticalOffset(fixture.Scroll.VerticalOffset + 20);
+            Assert.Equal(originalOffset, fixture.Scroll.VerticalOffset, 6);
+            fixture.Layout();
+            var legacyDistance = fixture.Scroll.VerticalOffset - originalOffset;
+            Assert.Equal(20, legacyDistance, 6);
+
+            fixture.SetOffset(originalOffset);
+            var session = new TouchNavigationSession();
+            session.BeginContact(1, new Point(100, 240), 0);
+            session.MoveContact(1, new Point(100, 220), 4);
+            session.MoveContact(1, new Point(100, 200), 8);
+            session.MoveContact(1, new Point(100, 180), 12);
+            Assert.True(session.TryTakeFrame(16, out var frame));
+            Assert.Equal(60, frame.ScrollDelta.Y, 6);
+            fixture.Scroll.ScrollToVerticalOffset(fixture.Scroll.VerticalOffset + frame.ScrollDelta.Y);
+            fixture.Layout();
+
+            Assert.Equal(originalOffset + 60, fixture.Scroll.VerticalOffset, 6);
+            Assert.False(session.TryTakeFrame(17, out _));
+            output.WriteLine($"Three 20 DIP packets before layout: legacy displacement {legacyDistance:F0} DIP; coalesced displacement {fixture.Scroll.VerticalOffset - originalOffset:F0} DIP.");
+            session.Cancel();
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CoalescedPanReversesImmediatelyAfterReachingScrollBoundary(bool bottom)
+    {
+        Sta(() =>
+        {
+            var fixture = new PagesFixture();
+            fixture.SetOffset(bottom ? fixture.Scroll.ScrollableHeight : 0);
+            var boundary = fixture.Scroll.VerticalOffset;
+            var session = new TouchNavigationSession();
+            var direction = bottom ? -1 : 1;
+            session.BeginContact(1, new Point(100, 200), 0);
+
+            session.MoveContact(1, new Point(100, 200 + direction * 20), 4);
+            session.MoveContact(1, new Point(100, 200 + direction * 40), 8);
+            Assert.True(session.TryTakeFrame(16, out var outward));
+            fixture.Scroll.ScrollToVerticalOffset(fixture.Scroll.VerticalOffset + outward.ScrollDelta.Y);
+            fixture.Layout();
+            Assert.Equal(boundary, fixture.Scroll.VerticalOffset, 6);
+
+            // Movement beyond an edge must not build up an invisible distance
+            // that the user then has to drag back before the page can move.
+            session.MoveContact(1, new Point(100, 200 + direction * 25), 20);
+            Assert.True(session.TryTakeFrame(32, out var inward));
+            fixture.Scroll.ScrollToVerticalOffset(fixture.Scroll.VerticalOffset + inward.ScrollDelta.Y);
+            fixture.Layout();
+            Assert.Equal(boundary + direction * 15, fixture.Scroll.VerticalOffset, 6);
+            session.Cancel();
+        });
+    }
+
+    [Fact]
+    public void HighRateTouchPacketsProduceOneScrollUpdatePerFrameWithoutLosingDistance()
+    {
+        Sta(() =>
+        {
+            const int packetCount = 240;
+            const int packetsPerFrame = 4;
+            const double distancePerPacket = 2;
+            var fixture = new PagesFixture();
+            fixture.SetOffset(200);
+            var originalOffset = fixture.Scroll.VerticalOffset;
+            var session = new TouchNavigationSession();
+            session.BeginContact(1, new Point(100, 1000), 0);
+            var frameCount = 0;
+            var totalDistance = 0d;
+
+            for (var packet = 1; packet <= packetCount; packet++)
+            {
+                var timestamp = packet * (1000d / packetCount);
+                session.MoveContact(1, new Point(100, 1000 - packet * distancePerPacket), timestamp);
+                if (packet % packetsPerFrame != 0) continue;
+
+                Assert.True(session.TryTakeFrame(timestamp, out var frame));
+                frameCount++;
+                totalDistance += frame.ScrollDelta.Y;
+                fixture.Scroll.ScrollToVerticalOffset(fixture.Scroll.VerticalOffset + frame.ScrollDelta.Y);
+                fixture.Layout();
+            }
+
+            Assert.Equal(60, frameCount);
+            Assert.Equal(packetCount * distancePerPacket, totalDistance, 6);
+            Assert.Equal(originalOffset + totalDistance, fixture.Scroll.VerticalOffset, 6);
+            Assert.False(session.TryTakeFrame(1001, out _));
+            output.WriteLine($"Synthetic 240 Hz input / 60 Hz frames: {packetCount} packets, {frameCount} scroll updates, {totalDistance:F0} DIP retained. This verifies batching and distance, not hardware frame timing.");
+            session.Cancel();
         });
     }
 

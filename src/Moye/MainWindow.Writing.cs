@@ -112,7 +112,7 @@ public partial class MainWindow
         if (_tool == InkTool.Pen) _penColor = _color; else _highlighterColor = _color;
         _recentWritingPresets[_tool] = _workingPreset.Snapshot();
         _syncingPreferences = true;
-        try { WidthPicker.SelectedIndex = -1; }
+        try { WidthPicker.StrokeWidth = _width; }
         finally { _syncingPreferences = false; }
         UpdateTool(); RefreshPresetToolbar();
         if (save) QueuePreferencesSave();

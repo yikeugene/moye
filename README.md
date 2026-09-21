@@ -16,6 +16,10 @@ The installer places the app in `%LOCALAPPDATA%\Programs\Moye` by default. To up
 
 ## Features
 
+The current source adds a visual color palette and draggable thickness control with a live stroke preview. This update is local and is not yet in the linked 1.7.0 release.
+
+The local source also improves finger navigation: touch movement is combined per display update, one-finger swipes slow down after release, and thumbnail generation waits until scrolling settles. These changes have synthetic regression coverage; touch smoothness and pen/palm behavior still require device testing.
+
 - **Notebook → Section → Page**: use a notebook for a course, sections for topics, and pages for lecture notes.
 - Notebooks with titles and categories; search by either. Delete a notebook from its home card or **More → Delete Notebook…**, with confirmation. Add, duplicate, reorder, and delete pages.
 - Create, rename, reorder or delete sections; move pages between sections. Section changes support notebook undo/redo, local autosave and editable backups. Existing pages appear in **General**.

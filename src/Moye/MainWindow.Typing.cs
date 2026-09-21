@@ -189,18 +189,10 @@ public partial class MainWindow
     }
     private void TextColorClick(object sender, RoutedEventArgs e)
     {
-        var button = (Button)sender; button.ContextMenu.PlacementTarget = button;
-        button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true;
-    }
-    private void TextColorOptionClick(object sender, RoutedEventArgs e) => ApplyTextFormatting(color: (Color)ColorConverter.ConvertFromString((string)((MenuItem)sender).Tag));
-    private void CustomTextColorClick(object sender, RoutedEventArgs e)
-    {
         var text = CurrentEditor?.SelectedText ?? _textDefaults;
-        var dialog = new InputDialog(this, "Text Color", ("Hex color (for example, #326AE8)", text.Color));
+        var dialog = new ColorPickerDialog(this, (Color)ColorConverter.ConvertFromString(text.Color), "Text Color");
         if (dialog.ShowDialog() != true) return;
-        try { ApplyTextFormatting(color: (Color)ColorConverter.ConvertFromString(dialog.Values[0])); }
-        catch (Exception exception) when (exception is FormatException or NotSupportedException or ArgumentException)
-        { MessageBox.Show(this, "Enter a valid color, such as #326AE8.", "Text Color"); }
+        ApplyTextFormatting(color: dialog.SelectedColor);
     }
     private void TextBulletsClick(object sender, RoutedEventArgs e) => CurrentEditor?.ToggleTextList(false);
     private void TextNumberingClick(object sender, RoutedEventArgs e) => CurrentEditor?.ToggleTextList(true);

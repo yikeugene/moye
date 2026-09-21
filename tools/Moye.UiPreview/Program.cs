@@ -187,7 +187,13 @@ internal static class Program
             var presetSurface = new Border { Background = Brushes.White, Child = presetContent };
             SaveImage(output, "ui-preview-presets.png", RenderElement(presetSurface, 744, 620));
             VerifyDetached(presetSurface, presetDialog);
-            reports.Add(MeasureButtons(presetSurface, 744, 620, "ui-preview-presets.png", "presets"));
+            reports.Add(MeasureSliders(MeasureButtons(presetSurface, 744, 620, "ui-preview-presets.png", "presets", "Cancel", "Save and Use"), presetSurface));
+            var presetScroll = Descendants<ScrollViewer>(presetContent).First(viewer => viewer.Content is StackPanel panel && Descendants<StrokeWidthPicker>(panel).Any());
+            presetScroll.ScrollToBottom(); presetSurface.UpdateLayout();
+            SaveImage(output, "ui-preview-presets-bottom.png", RenderElement(presetSurface, 744, 620));
+            reports.Add(MeasureSliders(MeasureButtons(presetSurface, 744, 620, "ui-preview-presets-bottom.png", "presets-bottom", "Cancel", "Save and Use"), presetSurface));
+
+            VerifyColorPickerLayout(output, reports);
 
             var picker = new PaperTemplatePicker { SelectedTemplate = PaperTemplate.Ruled };
             var pickerPanel = new StackPanel();
@@ -229,7 +235,7 @@ internal static class Program
             foreach (var (popupName, scene, width, requiredNames) in new[]
             {
                 ("EraserSettingsPopup", "eraser-settings", 330, new[] { "PointEraseOption", "StrokeEraseOption" }),
-                ("PenSettingsPopup", "pen-settings", 310, new[] { "HoldToStraightenToggle" })
+                ("PenSettingsPopup", "pen-settings", 350, new[] { "HoldToStraightenToggle", "MoreInkColorsButton" })
             })
             {
                 var popup = (Popup)window.FindName(popupName);
@@ -257,7 +263,9 @@ internal static class Program
                 var fileName = $"ui-preview-{scene}.png";
                 SaveImage(output, fileName, RenderElement(popupContent, width, height));
                 VerifyDetached(popupContent, window);
-                reports.Add(MeasureButtons(popupContent, width, height, fileName, scene, requiredNames));
+                var report = MeasureButtons(popupContent, width, height, fileName, scene, requiredNames);
+                reports.Add(scene == "pen-settings" ? MeasureSliders(report, popupContent) : report);
+                if (scene == "pen-settings") VerifyWidthPreviews(window, popupContent, width, height, output, reports);
             }
 
             foreach (var report in reports)
@@ -266,6 +274,7 @@ internal static class Program
             File.WriteAllText(Path.Combine(output, "ui-preview-layout.json"),
                 JsonSerializer.Serialize(reports, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
             File.WriteAllText(Path.Combine(output, "ui-preview-layout.md"), Describe(reports), Encoding.UTF8);
+            VerifyThumbnailScheduling(window, repository, output);
             window.ViewModel.Dispose();
             if (reports.Any(report => report.Under44Dip.Count > 0 || report.Overlaps.Count > 0 || report.Clipped.Count > 0))
             {
@@ -281,6 +290,180 @@ internal static class Program
     {
         if (PresentationSource.FromVisual(content) is not null || new WindowInteropHelper(window).Handle != IntPtr.Zero)
             throw new InvalidOperationException("The preview unexpectedly became attached to a native window.");
+    }
+
+    private static void VerifyThumbnailScheduling(MainWindow window, FixtureRepository repository, string output)
+    {
+        // Exercise the real shell queue after all visual scenes. No native
+        // window, touch injection, timers or real notebook storage are needed.
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        object? Call(string name, params object?[] arguments) => typeof(MainWindow).GetMethod(name, flags)!.Invoke(window, arguments);
+        T Field<T>(string name) => (T)typeof(MainWindow).GetField(name, flags)!.GetValue(window)!;
+        void Set(string name, object? value) => typeof(MainWindow).GetField(name, flags)!.SetValue(window, value);
+        void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException("Thumbnail scheduling: " + message); }
+        void Tick() => ((Task)Call("ProcessThumbnailWorkAsync")!).GetAwaiter().GetResult();
+        void Prepare(PageViewModel page) => ((Task)Call("PrepareSidebarThumbnailAsync", page)!).GetAwaiter().GetResult();
+
+        window.ViewModel.ReplaceDocument(new NotebookDocument
+        {
+            Title = "Thumbnail scheduling fixture",
+            Pages = Enumerable.Range(0, 3).Select(_ => new NotePage { Width = 240, Height = 320 }).ToList()
+        }, true);
+        Call("ResetThumbnailWork");
+        Set("_viewportQuietAfter", 0L);
+        var pages = window.ViewModel.Pages.ToArray();
+        var prepared = Field<Dictionary<PageViewModel, PageEditor>>("_preparedThumbnails");
+        var pending = Field<HashSet<PageViewModel>>("_pendingThumbnails");
+        var dirty = Field<HashSet<PageEditor>>("_dirtyThumbnails");
+        var editors = Field<Dictionary<Border, PageEditor>>("_editors");
+        var touch = Field<TouchNavigationSession>("_touchNavigation");
+        int Rendered() => pages.Count(page => page.Thumbnail is not null);
+        foreach (var page in pages) Prepare(page);
+        Check(prepared.Count == 3 && Rendered() == 0, "preparation must not render a bitmap.");
+
+        touch.BeginContact(1, new Point(100, 200), 0);
+        Tick();
+        Check(Rendered() == 0 && prepared.Count == 3, "a resting finger must defer prepared bitmap work.");
+        touch.MoveContact(1, new Point(100, 120), 40);
+        Check(touch.HasPendingFrame, "the movement fixture must contain an unconsumed frame.");
+        Tick();
+        Check(Rendered() == 0 && prepared.Count == 3, "pending touch motion must defer prepared bitmap work.");
+        Check(touch.TryTakeFrame(40, out _), "the movement fixture must produce a frame.");
+        touch.EndContact(1, 40);
+        Check(touch.IsInertiaActive, "the movement fixture must start inertia.");
+        Tick();
+        Check(Rendered() == 0 && prepared.Count == 3, "inertia must defer prepared bitmap work.");
+        touch.Cancel();
+
+        Set("_viewportPenDeviceId", 42);
+        Tick();
+        Check(Rendered() == 0, "the early pen-contact guard must defer bitmap work.");
+        Set("_viewportPenDeviceId", null);
+        var composingEditor = new PageEditor(pages[0].Page, repository.GetAssetAsync);
+        var composingTexts = (HashSet<TextBox>)typeof(PageEditor).GetField("_composingTexts", flags)!.GetValue(composingEditor)!;
+        composingTexts.Add(new TextBox());
+        var composingHost = new Border(); editors.Add(composingHost, composingEditor);
+        Tick();
+        Check(Rendered() == 0, "text composition must defer bitmap work without committing the editor.");
+        composingTexts.Clear(); editors.Remove(composingHost);
+
+        for (var expected = 1; expected <= 3; expected++)
+        {
+            Tick();
+            Check(Rendered() == expected && prepared.Count == 3 - expected,
+                "each idle tick must render exactly one of the three prepared pages.");
+        }
+
+        // A later edit invalidates both an existing bitmap and a prepared
+        // snapshot. Its dirty work must survive virtualization detaching it.
+        var item = pages[0];
+        var oldBitmap = item.Thumbnail;
+        Prepare(item);
+        var stalePrepared = prepared[item];
+        item.Page.Texts.Add(new NoteText { Text = "A newer edit", X = 20, Y = 25, Width = 200, Height = 60 });
+        var changedEditor = new PageEditor(item.Page, repository.GetAssetAsync);
+        Call("InvalidateThumbnail", changedEditor);
+        Call("QueueThumbnail", changedEditor);
+        Check(item.Thumbnail is null && !prepared.ContainsKey(item) && pending.Contains(item),
+            "an edit must discard cached and prepared thumbnails while retaining page work.");
+        // Reproduce an old asynchronous image completion after invalidation.
+        stalePrepared.SetPdfBackground(oldBitmap!);
+        Check(!prepared.ContainsKey(item), "a stale asset completion must not revive the old prepared editor.");
+        var host = new Border { DataContext = item, Child = changedEditor };
+        editors.Add(host, changedEditor);
+        Call("DetachPage", host);
+        Check(!dirty.Contains(changedEditor) && pending.Contains(item) && host.Child is null,
+            "detaching a dirty editor must retain the page's thumbnail work.");
+        Tick();
+        Check(item.Thumbnail is null && prepared.TryGetValue(item, out var currentPrepared) &&
+            currentPrepared.Page.Texts.Single().Text == "A newer edit", "the next preparation must capture the newer page content.");
+        Tick();
+        Check(item.Thumbnail is not null && !ReferenceEquals(oldBitmap, item.Thumbnail),
+            "the idle queue must regenerate the detached page's thumbnail.");
+        Call("ResetThumbnailWork");
+        stalePrepared.SetPdfBackground(oldBitmap!);
+        Check(prepared.Count == 0 && pending.Count == 0, "reset generations must reject late asset completions.");
+
+        const string result = "Thumbnail queue checks passed: touch contact, pending movement, inertia, pen contact and text composition defer rendering; three prepared pages render over three ticks; changed-page invalidation survives detachment; stale asset completions are rejected. These detached checks do not verify hardware gesture timing.";
+        Console.WriteLine(result);
+        File.WriteAllText(Path.Combine(output, "thumbnail-scheduling-checks.txt"), result + Environment.NewLine, Encoding.UTF8);
+    }
+
+    private static void VerifyColorPickerLayout(string output, List<PreviewReport> reports)
+    {
+        var initial = Color.FromArgb(160, 50, 106, 232);
+        var dialog = new ColorPickerDialog(null!, initial, "Choose Ink Color");
+        var content = (FrameworkElement)dialog.Content; dialog.Content = null;
+        TextElement.SetFontFamily(content, dialog.FontFamily);
+        TextElement.SetFontSize(content, dialog.FontSize);
+        TextElement.SetForeground(content, dialog.Foreground);
+        var surface = new Border { Background = Brushes.White, Child = content };
+        var scroll = Descendants<ScrollViewer>(content).FirstOrDefault();
+        // The visual tree does not realize the ScrollViewer until the first arrange.
+        Arrange(surface, 464, 600);
+        scroll ??= Descendants<ScrollViewer>(content).First();
+        foreach (var (scene, width, height, custom, bottom) in new[]
+        {
+            ("color-picker", 464, 600, false, false),
+            ("color-picker-custom", 464, 600, true, false),
+            ("color-picker-compact", 404, 440, true, false),
+            ("color-picker-compact-bottom", 404, 440, true, true)
+        })
+        {
+            if (custom) { dialog.Picker.SetHue(286); dialog.Picker.SetSaturationValue(.66, .82); }
+            else dialog.Picker.SelectColor(initial);
+            if (dialog.SelectedColor != initial || dialog.Picker.InitialColor != initial || dialog.Picker.SelectedColor.A != initial.A)
+                throw new InvalidOperationException("Color preview must preserve original alpha and keep the dialog result unchanged until Apply.");
+            Arrange(surface, width, height);
+            if (bottom) scroll.ScrollToBottom(); else scroll.ScrollToTop();
+            surface.UpdateLayout();
+            var image = $"ui-preview-{scene}.png";
+            SaveImage(output, image, RenderElement(surface, width, height));
+            VerifyDetached(surface, dialog);
+            if (dialog.Picker.ColorField.ActualWidth > scroll.ViewportWidth + .5)
+                throw new InvalidOperationException("The compact color field extends outside its horizontal scroll viewport.");
+            reports.Add(MeasureSliders(MeasureButtons(surface, width, height, image, scene, "Apply", "Cancel"), surface));
+        }
+    }
+
+    private static void VerifyWidthPreviews(MainWindow window, FrameworkElement content, int width, int height,
+        string output, List<PreviewReport> reports)
+    {
+        var picker = (StrokeWidthPicker)window.FindName("WidthPicker");
+        var coloredPixels = new Dictionary<string, int>();
+        foreach (var (scene, strokeWidth, highlighter) in new[]
+        {
+            ("pen-settings-thin", WritingPreferences.MinimumWidth, false),
+            ("pen-settings-broad", WritingPreferences.MaximumWidth, false),
+            ("pen-settings-highlighter", WritingPreferences.MaximumWidth, true)
+        })
+        {
+            picker.StrokeWidth = strokeWidth;
+            picker.ConfigurePreview(highlighter ? Colors.Gold : Colors.Blue, highlighter, 1, !highlighter, true);
+            var image = $"ui-preview-{scene}.png";
+            var popupBitmap = RenderElement(content, width, height);
+            SaveImage(output, image, popupBitmap);
+            VerifyDetached(content, window);
+            reports.Add(MeasureSliders(MeasureButtons(content, width, height, image, scene, "HoldToStraightenToggle", "MoreInkColorsButton"), content));
+            var sample = Descendants<FrameworkElement>(picker).Single(element => element.GetType().Name == "InkSample");
+            // Crop the arranged sample in place: re-arranging a child as a
+            // standalone root would change the layout being tested next.
+            var sampleBounds = sample.TransformToAncestor(content).TransformBounds(new Rect(sample.RenderSize));
+            var bitmap = new CroppedBitmap(popupBitmap, new Int32Rect((int)Math.Ceiling(sampleBounds.X), (int)Math.Ceiling(sampleBounds.Y),
+                (int)Math.Floor(sampleBounds.Width), (int)Math.Floor(sampleBounds.Height)));
+            var pixels = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
+            bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
+            var count = 0;
+            for (var i = 0; i < pixels.Length; i += 4)
+            {
+                var blue = pixels[i]; var green = pixels[i + 1]; var red = pixels[i + 2];
+                if (highlighter ? red > 220 && green > 150 && blue < 200 : blue > red + 40 && blue > green + 40) count++;
+            }
+            if (count == 0) throw new InvalidOperationException($"The {scene} preview did not render a colored ink sample.");
+            coloredPixels[scene] = count;
+        }
+        if (coloredPixels["pen-settings-broad"] <= coloredPixels["pen-settings-thin"] * 3)
+            throw new InvalidOperationException("The broad stroke preview must visibly differ from the thinnest stroke.");
     }
 
     private static void VerifyWritingCommands(MainWindow window)
@@ -478,19 +661,19 @@ internal static class Program
     {
         // IsVisible requires a presentation source and is false for this deliberately
         // detached tree. Check the declared visibility through all local ancestors.
-        var visibleButtons = Descendants<ButtonBase>(content)
+        var laidOutButtons = Descendants<ButtonBase>(content)
             .Where(b => b is Button or RadioButton or CheckBox)
             .Where(b => HasVisibleAncestors(b) && b.ActualWidth > 0 && b.ActualHeight > 0).ToList();
+        var visibleButtons = laidOutButtons.Where(button => InsideScrollViewports(button, content)).ToList();
+        var scrollHidden = laidOutButtons.Except(visibleButtons).Select(ControlName).ToList();
         var buttons = visibleButtons.Select(button =>
             {
                 var bounds = button.TransformToAncestor(content).TransformBounds(new Rect(button.RenderSize));
                 // This reads an attached label on an in-memory WPF object. It is
                 // not a UI Automation client or an inspection of the desktop.
-                var name = AutomationProperties.GetName(button);
-                if (string.IsNullOrEmpty(name)) name = button.Content as string ?? button.ToolTip as string ?? button.Name;
-                return new ButtonBounds(name, Round(bounds.X), Round(bounds.Y), Round(bounds.Width), Round(bounds.Height), button.IsEnabled);
+                return new ButtonBounds(ControlName(button), Round(bounds.X), Round(bounds.Y), Round(bounds.Width), Round(bounds.Height), button.IsEnabled);
             }).ToList();
-        if (buttons.Count == 0 || requiredNames.Any(name => !visibleButtons.Any(button => button.Name == name)))
+        if (buttons.Count == 0 || requiredNames.Any(name => !visibleButtons.Any(button => button.Name == name || ControlName(button) == name)))
             throw new InvalidOperationException($"The required {scene} controls were not laid out; missing controls cannot count as a passing preview.");
         var overlaps = new List<string>();
         for (var i = 0; i < buttons.Count; i++)
@@ -502,7 +685,65 @@ internal static class Program
         }
         return new PreviewReport(image, width, height, buttons,
             buttons.Where(b => b.Width < 43.99 || b.Height < 43.99).Select(b => b.Name).ToList(), overlaps,
-            buttons.Where(b => b.X < -.5 || b.Y < -.5 || b.X + b.Width > width + .5 || b.Y + b.Height > height + .5).Select(b => b.Name).ToList()) { Scene = scene };
+            buttons.Where(b => b.X < -.5 || b.Y < -.5 || b.X + b.Width > width + .5 || b.Y + b.Height > height + .5).Select(b => b.Name).ToList()) { Scene = scene, ScrollHiddenControls = scrollHidden };
+    }
+
+    private static PreviewReport MeasureSliders(PreviewReport report, FrameworkElement content)
+    {
+        var sliders = new List<SliderBounds>();
+        foreach (var slider in Descendants<Slider>(content).Where(s => HasVisibleAncestors(s) && s.ActualWidth > 0 && s.ActualHeight > 0))
+        {
+            var name = ControlName(slider);
+            if (!InsideScrollViewports(slider, content))
+            {
+                report.ScrollHiddenControls.Add(name);
+                continue;
+            }
+            var bounds = slider.TransformToAncestor(content).TransformBounds(new Rect(slider.RenderSize));
+            var thumb = (slider.Template.FindName("PART_Track", slider) as Track)?.Thumb ?? Descendants<Thumb>(slider).Single();
+            var thumbBounds = thumb.TransformToAncestor(content).TransformBounds(new Rect(thumb.RenderSize));
+            var item = new SliderBounds(name, Round(bounds.X), Round(bounds.Y), Round(bounds.Width), Round(bounds.Height),
+                Round(thumbBounds.Width), Round(thumbBounds.Height), slider.Value, slider.Minimum, slider.Maximum);
+            sliders.Add(item);
+            if (bounds.Width < 43.99 || bounds.Height < 43.99) report.Under44Dip.Add(name);
+            if (thumbBounds.Width < 43.99 || thumbBounds.Height < 43.99) report.Under44Dip.Add($"{name} thumb");
+            if (bounds.Left < -.5 || bounds.Top < -.5 || bounds.Right > report.Width + .5 || bounds.Bottom > report.Height + .5)
+                report.Clipped.Add(name);
+            if (thumbBounds.Left < bounds.Left - .5 || thumbBounds.Top < bounds.Top - .5 || thumbBounds.Right > bounds.Right + .5 || thumbBounds.Bottom > bounds.Bottom + .5)
+                report.Clipped.Add($"{name} thumb outside slider");
+            foreach (var button in report.Buttons)
+            {
+                var intersection = Rect.Intersect(bounds, button.Rect);
+                if (!intersection.IsEmpty && intersection.Width > .5 && intersection.Height > .5)
+                    report.Overlaps.Add($"{name} / {button.Name}: {Round(intersection.Width)} × {Round(intersection.Height)} DIP");
+            }
+        }
+        return report with { Sliders = sliders };
+    }
+
+    private static string ControlName(FrameworkElement control)
+    {
+        // An attached label on a detached object, not a UI Automation query.
+        var name = AutomationProperties.GetName(control);
+        if (!string.IsNullOrEmpty(name)) return name;
+        return (control as ContentControl)?.Content as string ?? control.ToolTip as string ??
+            (string.IsNullOrEmpty(control.Name) ? control.GetType().Name : control.Name);
+    }
+
+    private static bool InsideScrollViewports(FrameworkElement element, FrameworkElement root)
+    {
+        var bounds = element.TransformToAncestor(root).TransformBounds(new Rect(element.RenderSize));
+        for (DependencyObject? ancestor = VisualTreeHelper.GetParent(element); ancestor is not null && ancestor != root;
+             ancestor = VisualTreeHelper.GetParent(ancestor))
+        {
+            if (ancestor is not ScrollContentPresenter presenter) continue;
+            var viewport = presenter.TransformToAncestor(root).TransformBounds(new Rect(presenter.RenderSize));
+            // Intentional scrolling is measured in separate top/bottom scenes;
+            // hidden or partially revealed controls are not root-layout overlaps.
+            if (bounds.Left < viewport.Left - .5 || bounds.Top < viewport.Top - .5 ||
+                bounds.Right > viewport.Right + .5 || bounds.Bottom > viewport.Bottom + .5) return false;
+        }
+        return true;
     }
 
     private static double Round(double value) => Math.Round(value, 2);
@@ -516,19 +757,26 @@ internal static class Program
 
     private static string Describe(IEnumerable<PreviewReport> reports)
     {
-        var text = new StringBuilder("# Moye WPF offscreen layout preview\n\nUses the actual MainWindow.Content, application resources, and PageEditor with an in-memory test fixture. No user database is accessed. No windows are displayed, no input is sent, and no UI Automation client or desktop capture is used.\n\nThis Measure / Arrange / RenderTargetBitmap preview checks layout only. It does not validate live UI interaction, touch, pen input, window DPI, popup menus, or the system title bar. Image dimensions describe the content area in DIP, rendered at 96 DPI.\n\n");
+        var text = new StringBuilder("# Moye WPF offscreen layout preview\n\nUses the actual MainWindow.Content, application resources, and PageEditor with an in-memory test fixture. No user database is accessed. No windows are displayed, no input is sent, and no UI Automation client or desktop capture is used.\n\nThis Measure / Arrange / RenderTargetBitmap preview checks layout only. It does not validate live UI interaction, touch, pen input, window DPI, popup menus, or the system title bar. Image dimensions describe the content area in DIP, rendered at 96 DPI. Controls outside an intentional scroll viewport are listed separately; dialog top/bottom scenes check the revealed controls and fixed action buttons. Slider geometry is checked for the new color and thickness controls.\n\n");
         foreach (var report in reports)
         {
             text.AppendLine($"## {report.Scene}: {report.Width} × {report.Height}\n\nImage: {report.Image}\n");
             if (report.Scene.StartsWith("editor", StringComparison.Ordinal)) text.AppendLine($"Viewport: {report.ViewportWidth} × {report.ViewportHeight} DIP. Zoom: {report.Zoom:P0}.\n");
             if (report.Scene == "editor-fit-width") text.AppendLine($"Page width: {report.PageDisplayWidth} DIP. Left gutter: {report.PageLeftGutter} DIP; right gutter: {report.PageRightGutter} DIP. Both page edges and the realized editor align within the viewport.\n");
-            text.AppendLine($"Buttons: {report.Buttons.Count}; below 44 × 44 DIP: {report.Under44Dip.Count}; overlapping: {report.Overlaps.Count}; outside the content area: {report.Clipped.Count}.\n");
+            text.AppendLine($"Buttons: {report.Buttons.Count}; sliders: {report.Sliders.Count}; below 44 × 44 DIP: {report.Under44Dip.Count}; overlapping: {report.Overlaps.Count}; outside the content area: {report.Clipped.Count}.\n");
+            if (report.ScrollHiddenControls.Count > 0) text.AppendLine($"Outside the current scroll viewport: {string.Join(", ", report.ScrollHiddenControls)}.\n");
             foreach (var issue in report.Overlaps) text.AppendLine($"- Overlap: {issue}");
             foreach (var issue in report.Under44Dip) text.AppendLine($"- Below 44 DIP: {issue}");
             foreach (var issue in report.Clipped) text.AppendLine($"- Outside the content area: {issue}");
             text.AppendLine("\n| Button | X | Y | Width | Height | Enabled |\n|---|---:|---:|---:|---:|---|");
             foreach (var button in report.Buttons)
                 text.AppendLine($"| {button.Name.Replace("|", "/")} | {button.X} | {button.Y} | {button.Width} | {button.Height} | {button.Enabled} |");
+            if (report.Sliders.Count > 0)
+            {
+                text.AppendLine("\n| Slider | Width | Height | Thumb width | Thumb height | Value | Range |\n|---|---:|---:|---:|---:|---:|---|");
+                foreach (var slider in report.Sliders)
+                    text.AppendLine($"| {slider.Name} | {slider.Width} | {slider.Height} | {slider.ThumbWidth} | {slider.ThumbHeight} | {slider.Value} | {slider.Minimum}–{slider.Maximum} |");
+            }
             text.AppendLine();
         }
         return text.ToString();
@@ -538,10 +786,14 @@ internal static class Program
     {
         [System.Text.Json.Serialization.JsonIgnore] public Rect Rect => new(X, Y, Width, Height);
     }
+    private sealed record SliderBounds(string Name, double X, double Y, double Width, double Height,
+        double ThumbWidth, double ThumbHeight, double Value, double Minimum, double Maximum);
     private sealed record PreviewReport(string Image, int Width, int Height, List<ButtonBounds> Buttons,
         List<string> Under44Dip, List<string> Overlaps, List<string> Clipped)
     {
         public string Scene { get; init; } = "";
+        public List<SliderBounds> Sliders { get; init; } = [];
+        public List<string> ScrollHiddenControls { get; init; } = [];
         public double ViewportWidth { get; init; }
         public double ViewportHeight { get; init; }
         public double Zoom { get; init; }

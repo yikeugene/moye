@@ -10,20 +10,23 @@ namespace Moye.Controls;
 public sealed class PresetManagerDialog : Window
 {
     private readonly ListBox _list = new() { DisplayMemberPath = nameof(WritingPreset.Name), MinWidth = 190 };
-    private readonly TextBox _name = new() { MaxLength = 80 }, _color = new() { MaxLength = 9 }, _width = new();
+    private readonly TextBox _name = new() { MaxLength = 80 };
+    private readonly Button _color = new() { MinHeight = 44, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+    private readonly Border _colorSwatch = new() { Width = 36, Height = 26, CornerRadius = new CornerRadius(4), BorderBrush = Brushes.SlateGray, BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 12, 0) };
+    private readonly StrokeWidthPicker _width = new();
     private readonly ComboBox _tool = new() { ItemsSource = new[] { "Pen", "Highlighter" } };
     private readonly TextBox _opacity = new();
     private readonly CheckBox _pressure = Check("Pressure sensitivity"), _smoothing = Check("Stroke smoothing"), _favorite = Check("Show in favourite toolbar");
     private readonly TextBlock _error = new() { Foreground = Brushes.Firebrick, TextWrapping = TextWrapping.Wrap, MinHeight = 34 };
     private WritingPreset? _editing;
     private bool _loading;
+    private Color _selectedColor;
     public WritingPreferences Preferences { get; }
-    private string _loadedWidth = "";
 
     public PresetManagerDialog(Window owner, WritingPreferences preferences)
     {
         Preferences = preferences.Snapshot();
-        Owner = owner; Title = "Pen Presets"; Width = 760; Height = 660;
+        Owner = owner; Title = "Pen Presets"; Width = 760; Height = 760;
         MaxHeight = Math.Max(500, SystemParameters.WorkArea.Height - 30);
         WindowStartupLocation = WindowStartupLocation.CenterOwner; ShowInTaskbar = false; Background = Brushes.White;
         var root = new Grid { Margin = new Thickness(24), Background = Brushes.White };
@@ -41,16 +44,21 @@ public sealed class PresetManagerDialog : Window
         left.Children.Add(_list); body.Children.Add(left);
         var form = new StackPanel();
         AddField(form, "Preset name", _name); AddField(form, "Tool", _tool);
-        var pair = new Grid(); pair.ColumnDefinitions.Add(new()); pair.ColumnDefinitions.Add(new());
-        var a = new StackPanel { Margin = new Thickness(0, 0, 12, 0) }; var b = new StackPanel(); Grid.SetColumn(b, 1);
-        AddField(a, "Thickness (mm)", _width); AddField(b, "Color (#RRGGBB)", _color); pair.Children.Add(a); pair.Children.Add(b); form.Children.Add(pair);
+        var colorContent = new StackPanel { Orientation = Orientation.Horizontal };
+        colorContent.Children.Add(_colorSwatch);
+        colorContent.Children.Add(new TextBlock { Text = "Choose color…", VerticalAlignment = VerticalAlignment.Center });
+        _color.Content = colorContent;
+        System.Windows.Automation.AutomationProperties.SetName(_color, "Choose preset color");
+        _color.Click += (_, _) => ChooseColor();
+        AddField(form, "Color", _color);
+        _width.Margin = new Thickness(0, 0, 0, 12); form.Children.Add(_width);
         AddField(form, "Pen opacity (%)", _opacity);
         form.Children.Add(new TextBlock { Text = "Highlighter uses its native 50% transparency.", Foreground = Brushes.SlateGray, FontSize = 12, TextWrapping = TextWrapping.Wrap });
         form.Children.Add(_pressure); form.Children.Add(_smoothing); form.Children.Add(_favorite); form.Children.Add(_error);
         var scroll = new ScrollViewer { Content = form, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; Grid.SetColumn(scroll, 1); body.Children.Add(scroll);
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
         footer.Children.Add(new Button { Content = "Cancel", IsCancel = true });
-        var save = new Button { Content = "Save and Use", IsDefault = true, Style = (Style)FindResource("PrimaryButton") };
+        var save = new Button { Content = "Save and Use", IsDefault = true, Style = TryFindResource("PrimaryButton") as Style };
         save.Click += (_, _) => { if (CommitSelection()) DialogResult = true; }; footer.Children.Add(save); Grid.SetRow(footer, 2); root.Children.Add(footer); Content = root;
         _list.SelectionChanged += (_, _) =>
         {
@@ -58,7 +66,10 @@ public sealed class PresetManagerDialog : Window
             if (!StoreEditor()) { _loading = true; _list.SelectedItem = _editing; _loading = false; return; }
             LoadEditor(_list.SelectedItem as WritingPreset);
         };
-        _tool.SelectionChanged += (_, _) => _opacity.IsEnabled = _tool.SelectedIndex == 0;
+        _tool.SelectionChanged += (_, _) => { _opacity.IsEnabled = _tool.SelectedIndex == 0; UpdatePreview(); };
+        _opacity.TextChanged += (_, _) => UpdatePreview();
+        _pressure.Checked += (_, _) => UpdatePreview(); _pressure.Unchecked += (_, _) => UpdatePreview();
+        _smoothing.Checked += (_, _) => UpdatePreview(); _smoothing.Unchecked += (_, _) => UpdatePreview();
         Refresh(Preferences.Presets.FirstOrDefault(p => p.Id == Preferences.LastPresetId) ?? Preferences.Presets[0]);
     }
 
@@ -81,30 +92,51 @@ public sealed class PresetManagerDialog : Window
     private void LoadEditor(WritingPreset? preset)
     {
         _editing = preset; if (preset is null) return;
-        _name.Text = preset.Name; _color.Text = preset.Color; _width.Text = _loadedWidth = (preset.Width * 25.4 / 96).ToString("0.######", CultureInfo.CurrentCulture);
-        _tool.SelectedIndex = preset.Tool == InkTool.Highlighter ? 1 : 0;
-        _opacity.Text = (preset.Opacity * 100).ToString("0.######", CultureInfo.CurrentCulture);
-        _pressure.IsChecked = preset.PressureSensitivity; _smoothing.IsChecked = preset.Smoothing; _favorite.IsChecked = preset.IsFavorite; _error.Text = "";
+        _loading = true;
+        try
+        {
+            _name.Text = preset.Name;
+            SetSelectedColor((Color)ColorConverter.ConvertFromString(preset.Color));
+            // Keep the persisted DIP value exact; millimetres are display only.
+            _width.StrokeWidth = preset.Width;
+            _tool.SelectedIndex = preset.Tool == InkTool.Highlighter ? 1 : 0;
+            _opacity.Text = (preset.Opacity * 100).ToString("0.######", CultureInfo.CurrentCulture);
+            _pressure.IsChecked = preset.PressureSensitivity; _smoothing.IsChecked = preset.Smoothing;
+            _favorite.IsChecked = preset.IsFavorite; _error.Text = "";
+        }
+        finally { _loading = false; }
+        UpdatePreview();
+    }
+    private void ChooseColor()
+    {
+        var dialog = new ColorPickerDialog(this, _selectedColor, "Choose Preset Color");
+        if (dialog.ShowDialog() == true) SetSelectedColor(dialog.SelectedColor);
+    }
+    private void SetSelectedColor(Color color)
+    {
+        _selectedColor = color;
+        _colorSwatch.Background = new SolidColorBrush(color);
+        UpdatePreview();
+    }
+    private void UpdatePreview()
+    {
+        if (_loading || _editing is null) return;
+        var highlighter = _tool.SelectedIndex == 1;
+        var opacity = _editing.Opacity;
+        if (double.TryParse(_opacity.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var percent) &&
+            double.IsFinite(percent) && percent >= 10 && percent <= 100) opacity = percent / 100;
+        _width.ConfigurePreview(_selectedColor, highlighter, highlighter ? .5 : opacity,
+            _pressure.IsChecked == true, _smoothing.IsChecked == true);
     }
     private bool StoreEditor()
     {
         if (_editing is null) return true;
         if (string.IsNullOrWhiteSpace(_name.Text)) { _error.Text = "Give this preset a name."; return false; }
-        if (!double.TryParse(_width.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var mm) || !double.IsFinite(mm) || mm < .13229 || mm > 6.35)
-        { _error.Text = "Use a thickness between 0.132292 and 6.35 mm."; return false; }
         if (!double.TryParse(_opacity.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var opacity) || !double.IsFinite(opacity) || opacity < 10 || opacity > 100)
         { _error.Text = "Use an opacity between 10 and 100 percent."; return false; }
-        Color color;
-        try
-        {
-            var value = _color.Text.Trim();
-            if (!System.Text.RegularExpressions.Regex.IsMatch(value, "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")) throw new FormatException();
-            color = (Color)ColorConverter.ConvertFromString(value);
-        }
-        catch { _error.Text = "Enter a hex color, such as #326AE8."; return false; }
         _editing.Name = _name.Text.Trim();
-        if (_width.Text != _loadedWidth) _editing.Width = Math.Clamp(mm * 96 / 25.4, .5, 24);
-        _editing.Color = color.ToString();
+        _editing.Width = _width.StrokeWidth;
+        _editing.Color = _selectedColor.ToString();
         _editing.Tool = _tool.SelectedIndex == 1 ? InkTool.Highlighter : InkTool.Pen;
         _editing.Opacity = _editing.Tool == InkTool.Highlighter ? .5 : opacity / 100;
         _editing.PressureSensitivity = _pressure.IsChecked == true; _editing.Smoothing = _smoothing.IsChecked == true; _editing.IsFavorite = _favorite.IsChecked == true;
