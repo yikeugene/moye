@@ -28,6 +28,14 @@ public partial class App : Application
         // UI language is English; document text and the user's number/date formats are preserved.
         System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
         base.OnStartup(e);
+        // The isolated converter has no notebook library, preferences or main window.
+        if (e.Args.Length > 0 && e.Args[0] == "--convert-office")
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            if (e.Args.Length != 3) { Console.Error.WriteLine("--convert-office requires an input document and output PDF."); Shutdown(1); }
+            else Shutdown(OfficeConversionWorker.Run(e.Args[1], e.Args[2]));
+            return;
+        }
         var checkIndex = Array.IndexOf(e.Args, "--check-storage");
         if (checkIndex >= 0)
         {

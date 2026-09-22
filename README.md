@@ -2,13 +2,13 @@
 
 An offline handwriting notebook for Windows 11. Moye combines pressure-sensitive ink, PDF annotation, text boxes, and images in a native WPF app designed for a touchscreen laptop and an active pen.
 
-[Download Windows installer](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.8.0-Setup-win-x64.exe) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Roadmap](ROADMAP.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
+[Download Windows installer](https://github.com/yikeugene/moye/releases/latest/download/Moye-1.9.0-Setup-win-x64.exe) · [Releases](https://github.com/yikeugene/moye/releases/latest) · [User guide](docs/USER_GUIDE.md) · [Roadmap](ROADMAP.md) · [Contributing](https://github.com/yikeugene/moye/blob/master/CONTRIBUTING.md)
 
 ## Get started
 
-1. Download and run `Moye-1.8.0-Setup-win-x64.exe` from [Releases](https://github.com/yikeugene/moye/releases).
+1. Download and run `Moye-1.9.0-Setup-win-x64.exe` from [Releases](https://github.com/yikeugene/moye/releases).
 2. Complete the installer, then open **Moye** from the desktop shortcut it creates automatically. A Start menu shortcut is also added. The .NET runtime is included; no separate .NET installation or administrator account is needed.
-3. On **Your Notebooks**, open a notebook cover or choose **New Notebook** and select Blank, Ruled, Grid, Dot Grid, Cornell or Graph paper. Choose a favorite pen and start writing. Open **Presets…** to customize your tools, or **Pen Settings** to change the current color and width. A mouse works too.
+3. On **Your Notebooks**, open a notebook cover or choose **New Notebook** and select Blank, Ruled, Grid, Dot Grid, Cornell or Graph paper. Choose a favorite pen and start writing. Open **Manage pens** to customize your tools, or **Pen Settings** to change the current color and width. A mouse works too.
 
 Moye requires Windows 11 x64. An active pen compatible with Windows Ink is needed for pressure input. You can use the app and save notes without an account or an internet connection.
 
@@ -19,6 +19,12 @@ The installer places the app in `%LOCALAPPDATA%\Programs\Moye` by default. To up
 Moye 1.8.0 adds a visual color palette for ink, presets and text, plus a draggable thickness control with a live stroke preview.
 
 Version 1.8.0 also improves finger navigation: touch movement is combined per display update, one-finger swipes slow down after release, and thumbnail generation waits until scrolling settles. These changes have synthetic regression coverage; touch smoothness and pen/palm behavior still require device testing.
+
+Moye 1.9.0 includes PDF compatibility fixes: exported pressure ink keeps its original fill rule, avoiding white holes at overlapping stroke contours. Import accepts harmless empty form metadata and reports the affected page when page validation fails.
+
+Version 1.9.0 also adds **Insert → Import Document…** for DOCX, PPTX, PPSX, ODT and ODP files. DOCX needs installed Microsoft Word or LibreOffice; PPTX/PPSX need PowerPoint or LibreOffice; ODT/ODP need LibreOffice. Conversion runs locally and appends fixed PDF pages to the current section for annotation. The original file stays untouched; the library and backups retain the converted PDF. Moye does not bundle or download these converters. See [Office document import](docs/USER_GUIDE.md#office-document-import) for cancellation and format limits.
+
+The **1.9.0 interface refresh** adds a warm neutral workspace, forest green controls, clearer notebook covers, readable secondary text and keyboard focus indicators. Search offers a clear action and distinct no-results guidance; notebook deletion moves into each card's options menu. In 1.9.0, **My notebooks** replaces **All Notes**, **Manage pens** replaces **Presets…**, and **Export** is a labelled header action. See the [updated navigation guide](docs/USER_GUIDE.md#notebooks-sections-and-pages). Local execution of the refreshed application was blocked by Windows Application Control (`0x800711C7`). See the Release and GitHub Actions results for verification of the published commit; native interaction and local signing-policy compatibility remain unverified.
 
 - **Notebook → Section → Page**: use a notebook for a course, sections for topics, and pages for lecture notes.
 - Notebooks with titles and categories; search by either. Delete a notebook from its home card or **More → Delete Notebook…**, with confirmation. Add, duplicate, reorder, and delete pages.
@@ -33,9 +39,9 @@ Version 1.8.0 also improves finger navigation: touch movement is combined per di
 - PDF import and annotation, PDF export for sharing, and `.moye` backups that preserve editable content.
 - Background autosave to a local SQLite database, with unsaved snapshots retained if a write fails.
 
-The English interface puts the document title at the top, with **Contents** and **Notebooks** tabs in the sidebar. **All Notes** saves and returns to the notebook home screen. **Insert** contains page, PDF, and image commands; **Page Options** contains page management and paper styles. **Fit Width**, beside **Fit Page**, fits paper to the writing area and responds to window/sidebar resizing. `F11` hides the header, toolbar, sidebar and footer, while keeping **Exit Focus** and save errors available.
+The English interface puts the document title at the top, with **Contents** and **Notebooks** tabs in the sidebar. **My notebooks** saves and returns to the notebook home screen. **Insert** contains page, import, and image commands; **Page Options** contains page management and paper styles. **Fit Width**, beside **Fit Page**, fits paper to the writing area and responds to window/sidebar resizing. `F11` hides the header, toolbar, sidebar and footer, while keeping **Exit Focus** and save errors available.
 
-The starting presets are Black Pen **0.45 mm**, Blue Pen **0.45 mm**, Red Pen **0.35 mm** and Yellow Highlighter **3 mm**. Preset widths range from approximately **0.132292 to 6.35 mm**. Pen opacity is adjustable from **10% to 100%**; highlighters use native **50%** transparency. Use **Pen Settings → Save Current as Preset…** to keep a new tool. **Presets…** manages up to 40 presets; the first nine favorites appear in the toolbar.
+The starting presets are Black Pen **0.45 mm**, Blue Pen **0.45 mm**, Red Pen **0.35 mm** and Yellow Highlighter **3 mm**. Preset widths range from approximately **0.132292 to 6.35 mm**. Pen opacity is adjustable from **10% to 100%**; highlighters use native **50%** transparency. Use **Pen Settings → Save Current as Preset…** to keep a new tool. **Manage pens** manages up to 40 presets; the first nine favorites appear in the toolbar.
 
 Paper previews, page backgrounds and exported PDFs use the same template geometry. Dot Grid offers dotted guides, Cornell separates cues, notes and a summary, and Graph uses fine squares with stronger major guides. New paper pages are A4 with fixed spacing; custom paper sizes, spacing and template management remain future work.
 
@@ -53,7 +59,7 @@ Text boxes grow down to the page boundary and scroll internally when their conte
 
 Notes are stored in `%LOCALAPPDATA%\Moye\moye.db`, with SQLite journal files alongside it. Moving the app folder does not move your notebooks. Use **More → Back Up All Notebooks** to create a portable `.moye` backup. Restoring creates new copies and does not overwrite existing notebooks.
 
-Backups include editable ink, pressure, text, images, section/page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. Moye 1.8.0 keeps the same formats as 1.7.0 and reads older libraries and version 1 backups, assigning old pages to **General**. It upgrades libraries to database schema 2 and writes version 2 `.moye` backups. Moye 1.6.2 and earlier cannot open the upgraded library or new backups; use this build or a newer compatible one. See the [format guide](docs/FILE_FORMAT.md).
+Backups include editable ink, pressure, text, images, section/page order, and original PDFs. They are not encrypted. Writing tools and preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`; they are not included in `.moye` notebook backups. Moye 1.9.0 keeps the same formats as 1.7.0–1.8.0 and reads older libraries and version 1 backups, assigning old pages to **General**. It upgrades libraries to database schema 2 and writes version 2 `.moye` backups. Moye 1.6.2 and earlier cannot open the upgraded library or new backups; use this build or a newer compatible one. See the [format guide](docs/FILE_FORMAT.md).
 
 **If upgrading from 1.6.2 or earlier, export a backup with that version and keep it separately if you need to return to it.** Uninstalling the app does not reverse a library migration.
 
@@ -80,7 +86,7 @@ CLI and NuGet caches are kept in `.tools\cli` and `.tools\nuget`. CLI telemetry 
 | `build.ps1 -Configuration Release` | Build the Release configuration. |
 | `test.ps1 -Filter 'FullyQualifiedName~StorageTests'` | Run selected tests; TRX output is written to `artifacts\TestResults`. |
 | `publish.ps1` | Read the version from the project and create `artifacts\Moye-win-x64`, a versioned ZIP, and its SHA-256 file. Close any app running from the output folder first. |
-| `publish-installer.ps1 -InstallCompiler` | Build the self-contained payload and `artifacts\Moye-1.8.0-Setup-win-x64.exe` with its SHA-256 file. |
+| `publish-installer.ps1 -InstallCompiler` | Build the self-contained payload and `artifacts\Moye-1.9.0-Setup-win-x64.exe` with its SHA-256 file. |
 | `test-installer.ps1 -AllowDesktopChanges` | In a disposable Windows account, verify installation, automatic shortcuts, reinstallation, uninstallation and retained notebook data. CI runs this automatically. |
 | `preview-ui.ps1` | Render the real WPF layout with an in-memory sample at two sizes, with a button-size report in `artifacts`. It does not open a desktop window or read your notes database. |
 
@@ -88,11 +94,13 @@ For a separate library, use `Moye.exe --data-dir .\sample-library`. The app keep
 
 ## Verification and limitations
 
+Before the UI refresh, the document-import source passed **408 automated tests** and **35 detached WPF layout scenes** on **2026-09-21**. Synthetic DOCX and PPTX documents were also converted using installed Microsoft 365 Word/PowerPoint (16.0.20326.20144), including Chinese text, images, tables and a hidden slide. Page dimensions, unchanged source bytes, save/reopen, editable backups and annotated PDF round trips passed. LibreOffice routing and failure behavior have automated coverage; actual LibreOffice conversion remains unverified on this machine.
+
 On **2026-09-21**, the local 1.8.0 Release run passed **292 tests** with no failures or skips, and **33 detached WPF layout scenes** with no undersized visible controls, overlaps or clipping. Detached thumbnail scheduling checks also passed. These automated checks do not establish physical pen or touch interaction, or measured hardware frame rates.
 
 Earlier mouse checks on **2026-09-21** covered the visual color controls, Apply/Cancel, thickness preview, saved ink/text/preset values after reopening a synthetic library, and a scroll/draw/thumbnail regression. They did not exercise physical finger or stylus input.
 
-The 1.8.0 release workflow checks visual color selection, stroke-width gestures, touch movement/inertia, section navigation and undo, SQLite schema migration and rollback, save/reopen, editable backup formats 1 and 2, viewport stability, and whole-notebook PDF ordering. It also runs detached WPF layouts and executes the actual packaged app before accepting the installer. Installation and reinstallation checks verify automatic shortcuts and storage access; uninstallation checks retain synthetic notebook data. See [release notes](docs/RELEASE_NOTES_1.8.0.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for results for the published commit.
+The 1.9.0 release workflow checks document validation/converter routing, PDF import/export, library search recovery, visual color selection, stroke-width gestures, touch movement/inertia, section navigation and undo, SQLite schema migration and rollback, save/reopen, editable backup formats 1 and 2, viewport stability, and whole-notebook PDF ordering. It also runs detached WPF layouts and executes the actual packaged app before accepting the installer. Installation and reinstallation checks verify automatic shortcuts and storage access; uninstallation checks retain synthetic notebook data. See [release notes](docs/RELEASE_NOTES_1.9.0.md) and [GitHub Actions](https://github.com/yikeugene/moye/actions) for results for the published commit.
 
 SQLitePCLRaw 3.0.5 replaces the older dependency that Windows application control blocked on the affected machine. Local storage checks passed with the updated package without changing security settings. The app reports the underlying error and writes an error log beside the selected library when writable; compatibility with every device policy is not established.
 

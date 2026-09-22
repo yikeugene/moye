@@ -26,3 +26,8 @@ public interface IPdfService
     Task<BitmapSource> RenderAsync(NotePage page, double scale, CancellationToken cancellationToken = default);
     Task ExportAsync(string path, NotebookDocument document, CancellationToken cancellationToken = default);
 }
+
+public interface IOfficePdfConverter
+{
+    Task ConvertAsync(string sourcePath, string outputPdfPath, CancellationToken cancellationToken = default);
+}

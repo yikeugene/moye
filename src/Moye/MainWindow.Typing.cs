@@ -95,8 +95,8 @@ public partial class MainWindow
             TextFontPicker.Text = text.FontFamily;
             TextSizePicker.Text = (text.FontSize * .75).ToString("0.##", CultureInfo.CurrentCulture);
             TextAlignmentPicker.SelectedIndex = (int)text.Alignment;
-            TextBoldButton.Background = text.Bold ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent;
-            TextItalicButton.Background = text.Italic ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent;
+            TextBoldButton.Background = text.Bold ? (Brush)FindResource("AccentSoft") : Brushes.Transparent;
+            TextItalicButton.Background = text.Italic ? (Brush)FindResource("AccentSoft") : Brushes.Transparent;
             System.Windows.Automation.AutomationProperties.SetHelpText(TextBoldButton, text.Bold ? "Bold is on" : "Bold is off");
             System.Windows.Automation.AutomationProperties.SetHelpText(TextItalicButton, text.Italic ? "Italic is on" : "Italic is off");
             TextColorButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(text.Color));
@@ -104,7 +104,7 @@ public partial class MainWindow
             TypingHint.Text = overflow
                 ? "Text exceeds this page. Move the extra text to a new page before PDF export."
                 : "Type here, or click the paper to add another box. Ctrl+Enter returns to Pen.";
-            TypingHint.Foreground = overflow ? Brushes.Firebrick : Brushes.SlateGray;
+            TypingHint.Foreground = overflow ? (Brush)FindResource("Danger") : (Brush)FindResource("MutedInk");
         }
         finally { _syncingTextToolbar = false; }
     }

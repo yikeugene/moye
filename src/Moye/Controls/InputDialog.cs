@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace Moye.Controls;
 
@@ -9,21 +11,58 @@ public sealed class InputDialog : Window
     public string[] Values => _inputs.Select(t => t.Text.Trim()).ToArray();
     public InputDialog(Window owner, string title, params (string Label, string Value)[] fields)
     {
-        Owner = owner; Title = title; Width = 420; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner; ShowInTaskbar = false; Background = System.Windows.Media.Brushes.White;
-        var panel = new StackPanel { Margin = new Thickness(26) };
-        panel.Children.Add(new TextBlock { Text = title, FontSize = 21, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 18) });
+        Owner = owner; Title = title; Width = 440; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize;
+        MaxHeight = SystemParameters.WorkArea.Height;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner; ShowInTaskbar = false; Background = Brushes.White;
+        var panel = new StackPanel { Margin = new Thickness(28) };
+        panel.Children.Add(new TextBlock
+        {
+            Text = title, FontSize = 24, FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 24)
+        });
+        var error = new TextBlock
+        {
+            Foreground = (Brush)FindResource("Danger"), TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, 12)
+        };
+        AutomationProperties.SetLiveSetting(error, AutomationLiveSetting.Assertive);
         foreach (var (label, value) in fields)
         {
-            panel.Children.Add(new TextBlock { Text = label, Margin = new Thickness(0, 0, 0, 6) });
-            var input = new TextBox { Text = value, Margin = new Thickness(0, 0, 0, 18), MaxLength = 160 };
+            var input = new TextBox { Text = value, Margin = new Thickness(0, 6, 0, 18), MaxLength = 160 };
+            AutomationProperties.SetName(input, label);
+            panel.Children.Add(new Label
+            {
+                Content = label, Target = input, Padding = new Thickness(0), FontWeight = FontWeights.SemiBold
+            });
+            input.TextChanged += (_, _) => error.Visibility = Visibility.Collapsed;
             _inputs.Add(input); panel.Children.Add(input);
         }
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = new Button { Content = "Cancel", IsCancel = true };
-        var save = new Button { Content = "OK", IsDefault = true, Style = (Style)FindResource("PrimaryButton") };
-        save.Click += (_, _) => { if (_inputs.Any(t => string.IsNullOrWhiteSpace(t.Text))) { _inputs.First(t => string.IsNullOrWhiteSpace(t.Text)).Focus(); return; } DialogResult = true; };
-        buttons.Children.Add(cancel); buttons.Children.Add(save); panel.Children.Add(buttons); Content = panel;
-        Loaded += (_, _) => { _inputs[0].Focus(); _inputs[0].SelectAll(); };
+        panel.Children.Add(error);
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 88 };
+        var save = new Button { Content = "Save", IsDefault = true, MinWidth = 100, Style = (Style)FindResource("PrimaryButton") };
+        save.Click += (_, _) =>
+        {
+            var empty = _inputs.FirstOrDefault(t => string.IsNullOrWhiteSpace(t.Text));
+            if (empty is not null)
+            {
+                error.Text = $"{AutomationProperties.GetName(empty)} is required.";
+                error.Visibility = Visibility.Visible;
+                empty.Focus();
+                return;
+            }
+            DialogResult = true;
+        };
+        buttons.Children.Add(cancel); buttons.Children.Add(save); panel.Children.Add(buttons);
+        Content = new ScrollViewer
+        {
+            Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+        Loaded += (_, _) => { if (_inputs.Count > 0) { _inputs[0].Focus(); _inputs[0].SelectAll(); } };
     }
 }

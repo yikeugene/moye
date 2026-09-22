@@ -9,6 +9,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 {
     public INotebookRepository Repository { get; }
     public IPdfService Pdf { get; }
+    public DocumentImportService Documents { get; }
     public IBackupService Backup { get; }
     public AutosaveCoordinator Autosave { get; }
     public ObservableCollection<NotebookSummary> Notebooks { get; } = [];
@@ -41,14 +42,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public bool IsEditorVisible => !IsLibraryVisible;
     public bool HasNotebooks => _library.Count > 0;
     public bool HasVisibleNotebooks => Notebooks.Count > 0;
+    public bool HasSearch => !string.IsNullOrEmpty(Search);
     public string LibraryCountText => string.IsNullOrWhiteSpace(Search)
         ? $"{_library.Count} {(_library.Count == 1 ? "notebook" : "notebooks")}" : $"{Notebooks.Count} of {_library.Count} notebooks";
-    public string EmptyLibraryTitle => HasNotebooks ? "No notebooks found" : "Your next idea starts here";
-    public string EmptyLibraryDescription => HasNotebooks ? "Try searching for another notebook name or folder." : "Create a notebook and choose the paper that works for you.";
+    public string EmptyLibraryTitle => HasSearch || HasNotebooks ? "No notebooks found" : "Your next idea starts here";
+    public string EmptyLibraryDescription => HasSearch || HasNotebooks ? "Try another notebook name or category, or clear your search." : "Create a notebook and choose the paper that works for you.";
     public bool HasSaveError => Autosave.LastError is not null;
     public bool CanUndo => _history.CanUndo;
     public bool CanRedo => _history.CanRedo;
-    public string Search { get => _search; set { if (Set(ref _search, value)) FilterLibrary(); } }
+    public string Search { get => _search; set { if (Set(ref _search, value)) { Notify(nameof(HasSearch)); FilterLibrary(); } } }
     public double Zoom { get => _zoom; set { if (Set(ref _zoom, Math.Clamp(value, .25, 4))) { foreach (var page in Pages) page.Zoom = _zoom; Notify(nameof(ZoomLabel)); } } }
     public string ZoomLabel => $"{Zoom:P0}";
     public PageViewModel? SelectedPage
@@ -84,6 +86,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public MainViewModel(INotebookRepository repository)
     {
         Repository = repository; Pdf = new PdfService(repository); Backup = new BackupService(repository); Autosave = new(repository);
+        Documents = new DocumentImportService(Pdf, new OfficePdfConverter());
         var dispatcher = Application.Current?.Dispatcher;
         Autosave.StateChanged += (_, _) =>
         {

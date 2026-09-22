@@ -1,14 +1,14 @@
 # Moye user guide
 
-This guide describes the English interface in Moye 1.8.0 for Windows 11 x64.
+This guide describes the English interface in Moye 1.9.0 for Windows 11 x64.
 
 Version 1.6.0 adds the **Type** button and text-formatting workflow described below.
 
-**Before upgrading:** create a `.moye` backup using your current version and keep it separately. Moye 1.8.0 retains the schema 2 libraries and format 2 backups used by 1.7.0. Upgrading from 1.6.2 or earlier migrates the library; those older versions cannot reopen it or new backups. Uninstalling does not reverse this migration.
+**Before upgrading:** create a `.moye` backup using your current version and keep it separately. Moye 1.9.0 retains the schema 2 libraries and format 2 backups used by 1.7.0. Upgrading from 1.6.2 or earlier migrates the library; those older versions cannot reopen it or new backups. Uninstalling does not reverse this migration.
 
 ## Install, update and uninstall
 
-Download `Moye-1.8.0-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
+Download `Moye-1.9.0-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
 
 Open the **Moye** desktop shortcut after installation. When updating, close the app and run the newer installer. Existing notes stay in `%LOCALAPPDATA%\Moye`; the installer does not move or replace them. If you previously used a portable ZIP with the default library, the installed app uses that same library. A custom `--data-dir` library still needs its custom launch argument.
 
@@ -16,7 +16,9 @@ Remove Moye through **Windows Settings → Apps → Installed apps → Moye → 
 
 ## Notebooks, sections and pages
 
-Open `Moye.exe` to see **Your Notebooks**. Moye always starts on this home screen and waits for you to choose a notebook. An empty library shows a **Create a Notebook** button; it does not create a notebook automatically.
+The **1.9.0 interface** uses a warm neutral workspace with forest green controls, clearer notebook covers and visible keyboard focus. The navigation names below describe 1.9.0; version 1.8.0 uses **All Notes**, **Presets…** and **Create a Notebook** for the corresponding actions.
+
+Open `Moye.exe` to see **Your notebooks**. Moye always starts on this home screen and waits for you to choose a notebook. An empty library shows **Create your first notebook**; it does not create a notebook automatically. Notebook cards show the title, category and page count, with the most recently edited notebooks first.
 
 Click a notebook cover to open it, or **New Notebook** to choose a name, category, and first-page paper. The visual template cards offer six choices; new notebooks initially select Ruled. Canceling leaves the library unchanged.
 
@@ -31,13 +33,13 @@ Click a notebook cover to open it, or **New Notebook** to choose a name, categor
 
 New paper pages are A4, and each template uses fixed spacing. The same geometry appears in page backgrounds, thumbnails and exported PDFs. Custom sizes, adjustable spacing and saved custom templates remain future work.
 
-Click **All Notes** to save your changes and return home. You can also switch notebooks using the editor's **Notebooks** sidebar tab. Opening a notebook shows the first section and its page thumbnails in **Contents**. Click the document title, or choose **More → Rename and Category**, to change its title and category. Search covers notebook titles and categories, not handwriting recognition or full-text search. The home screen also offers **Restore Backup** and **Library Options → Back Up All Notebooks**.
+Click **My notebooks** to save your changes and return home. You can also switch notebooks using the editor's **Notebooks** sidebar tab. Opening a notebook shows the first section and its page thumbnails in **Contents**. Click the document title, or choose **More → Rename and Category**, to change its title and category. Search covers notebook titles and categories, not handwriting recognition or full-text search. On the home screen, `Ctrl+F` focuses search. Click its clear button, press `Esc` while search has focus, or choose **Clear search** in the no-results message to show all notebooks again. The sidebar search also supports clearing. The home screen offers **Restore backup** and **Library Options → Back Up All Notebooks**.
 
 Select a page thumbnail, then use **Insert → Add Page**, or **Add Page** beneath the thumbnails. Choose a paper preview and click **Add Page** to insert after the current page. The picker starts with the current ordinary page's style, or Ruled when viewing a PDF. The **Page Options** menu above the thumbnails lets you duplicate, move, or delete the selected page. Page deletion can be undone. Deleting the last page in the notebook leaves a new blank page; a section can otherwise be empty.
 
 Choose **Page Options → Paper Style**, select a visual template, and click **Apply Paper** to change an existing page. Your writing, text and images stay in place. This changes only the current ordinary page; PDF pages keep their original background.
 
-To delete a notebook, click **Delete Notebook…** beneath its cover on the home screen, or open it and choose **More → Delete Notebook…**. The confirmation names the notebook and defaults to **No**. Choosing **Yes** deletes that notebook and all its pages; this cannot be undone. Back it up first if you need a copy. Deleting the open notebook returns you to the home screen. If saving or deletion fails, the notebook stays available so you can retry.
+To delete a notebook, open its **Notebook options (⋯)** menu below the cover and choose **Delete Notebook…**, or open the notebook and choose **More → Delete Notebook…**. The confirmation names the notebook and defaults to **No**. Choosing **Yes** deletes that notebook and all its pages; this cannot be undone. Back it up first if you need a copy. Deleting the open notebook returns you to the home screen. If saving or deletion fails, the notebook stays available so you can retry.
 
 ## Organizing a course
 
@@ -62,7 +64,7 @@ The favorite toolbar starts with four tools:
 
 Click a favorite or press its displayed number, `1`–`9`, to select it. The toolbar shows the first nine presets marked as favorites. Drag a favorite onto another to change their order. If a favorite is outside the visible area, scroll the toolbar horizontally.
 
-Use **Pen Settings → Save Current as Preset…** to name and save a new tool from the current writing settings. Open **Presets…** to rename a preset, choose Pen or Highlighter, edit its color and thickness, duplicate it, delete it, or move it with **↑** and **↓**. Clear **Show in favourite toolbar** to hide a preset without deleting it. **Save and Use** applies your changes and activates the selected preset, including hidden presets; **Cancel** leaves your saved presets unchanged. You can keep up to 40 presets and must retain at least one.
+Use **Pen Settings → Save Current as Preset…** to name and save a new tool from the current writing settings. Open **Manage pens** to rename a preset, choose Pen or Highlighter, edit its color and thickness, duplicate it, delete it, or move it with **↑** and **↓**. Clear **Show in favourite toolbar** to hide a preset without deleting it. **Save and Use** applies your changes and activates the selected preset, including hidden presets; **Cancel** leaves your saved presets unchanged. You can keep up to 40 presets and must retain at least one.
 
 Drag the **Thickness** slider in Pen Settings or the preset editor to see a live sample stroke. The preview follows the color, pen/highlighter, opacity, pressure and smoothing settings; its width is shown at page scale, independently of document zoom. When editing selected ink with Lasso, the final width is applied once at the end of the drag, so one Undo restores the previous thickness. Thickness is shown in millimeters, from approximately **0.132292 to 6.35 mm**. The app stores widths in fixed page coordinates, so zooming changes their display size rather than the saved stroke width. Pens support **10–100% opacity**, **Pressure sensitivity**, and **Stroke smoothing**. Highlighters use native **50% transparency**; their opacity field is not adjustable. Colors are selected visually: click a swatch in **Pen Settings**, or **More Colors…** to choose from the palette and drag in the color square. The rainbow slider changes the hue; the square changes saturation and brightness. **Apply** uses the new color and **Cancel** keeps the original. Existing color transparency is preserved. The preset editor and text-color button use the same picker.
 
@@ -83,7 +85,7 @@ Click the eraser icon to open **Eraser Settings**:
 - **Pixel Eraser** removes only the touched portion of ink, leaving the surviving fragments editable. It does not erase the paper, PDF background, text boxes, or images.
 - **Stroke Eraser** removes the entire ink stroke when you touch any part of it.
 
-The toolbar label shows **Pixel** or **Stroke**. Click the eraser again to close its picker, or select a mode and continue writing. Press `E` to recall the last eraser mode. **Eraser Size** independently adjusts the erasing area from **12 to 120 DIP**, with a default of 20 DIP. Turn on **Erase highlighter only** to protect ordinary pen strokes while removing highlighting. Both modes remain undoable. Size, mode and the highlighter-only choice are remembered between launches.
+The toolbar shows **Eraser**; its tooltip and settings identify the remembered Pixel or Stroke mode. Click the eraser again to close its picker, or select a mode and continue writing. Press `E` to recall the last eraser mode. **Eraser Size** independently adjusts the erasing area from **12 to 120 DIP**, with a default of 20 DIP. Turn on **Erase highlighter only** to protect ordinary pen strokes while removing highlighting. Both modes remain undoable. Size, mode and the highlighter-only choice are remembered between launches.
 
 The remembered mode also applies to the pen's tail eraser when the device sends inverted-pen events. Actual tail-eraser and side-button behavior still depends on your device and drivers.
 
@@ -123,17 +125,33 @@ Images are limited to 20,000 pixels per side and 80 million pixels in total. The
 
 ## PDF annotation and export
 
-Choose **Insert → Import PDF** to insert the document's pages after the selected page. The original PDF is stored in your local library. You can add ink, highlighting, text boxes, and images over it.
+Choose **Insert → Import Document…** and select a PDF to append its pages to the current section. The original PDF is stored in your local library. You can add ink, highlighting, text boxes, and images over it. PDF import does not require Microsoft Office or LibreOffice.
 
-Click the share icon at the top, whose tooltip is **Share: Export PDF**, to export the whole notebook. Added ink and text become PDF page content rather than editable Moye objects. New text boxes are exported as vector outlines: their appearance is retained, but the exported text cannot be selected or searched. Original PDF text retains its existing capabilities. Keep a `.moye` backup if you need to edit the contents later.
+Click **Export** at the top to export the whole notebook. Added ink and text become PDF page content rather than editable Moye objects. Pressure ink stays vector-based, preserving its changing width and solid joins. New text boxes are exported as vector outlines: their appearance is retained, but the exported text cannot be selected or searched. Original PDF text retains its existing capabilities. Keep a `.moye` backup if you need to edit the contents later.
 
-Encrypted documents, interactive forms, digital signatures, and internal or cross-page annotation actions are not supported. If appropriate, flatten existing annotations in another PDF tool before importing. Ordinary URI links and supported page annotations can be retained. Moye displays an error for unsupported or damaged PDFs.
+Encrypted documents, interactive forms, digital signatures, and internal or cross-page annotation actions are not supported. Empty form metadata without fields is accepted. If appropriate, flatten existing annotations in another PDF tool before importing. Ordinary URI links and supported page annotations can be retained. Moye validates the document before adding its pages, and reports the affected page when page validation fails. If a file still fails, keep the original and include the error message when reporting it.
+
+## Office document import
+
+Open a notebook and section, choose **Insert → Import Document…**, then select a supported document:
+
+| File | Required local application |
+|---|---|
+| DOCX | Microsoft Word or LibreOffice |
+| PPTX, PPSX | Microsoft PowerPoint or LibreOffice |
+| ODT, ODP | LibreOffice |
+
+Moye uses the installed desktop application to convert the file locally, then appends its PDF pages to the current section. It does not bundle or download an Office application or conversion runtime. If none is available, export a PDF in the source application and import that instead. Fonts and layout depend on the installed converter.
+
+Imported pages are fixed PDF backgrounds. Add editable Moye handwriting, highlights, text boxes and images over them; the original Word text and slide objects cannot be edited in Moye. Slides are static: animations, video playback and internal page or slide jumps are not retained. Ordinary web links remain in the PDF. The source file is untouched. Only the converted PDF, together with your Moye annotations, is stored in the library and `.moye` backups; keep the original document separately.
+
+Use **Cancel Import** or press `Esc` while importing. Conversion has a two-minute timeout. Password-protected files, files containing macros, and documents with linked external resources are rejected with an explanation; embed linked content or export a PDF from the source application. PowerPoint may need to be closed before conversion because it can share one running application instance. If Moye reports that PowerPoint is in use, save your work and close it before retrying, or export a PDF there.
 
 ## Autosave and backups
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Moye 1.8.0 retains the formats used by 1.7.0 and reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; Moye 1.6.2 and earlier cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Moye 1.9.0 retains the formats used by 1.7.0 and reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; Moye 1.6.2 and earlier cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
 
 Writing preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`. This file contains presets and writing settings, and is **not included in `.moye` backups**. For a library started with `--data-dir`, both the database and preferences stay in that selected directory. A damaged settings file is preserved before defaults are offered; an unreadable or unsupported-version file is protected from replacement. A writing-settings warning offers details and retry when available. When an existing preferences file cannot be read or belongs to a newer version, tool changes apply to the current session only; notebooks still save and the app can close normally. Restart after resolving that file. A later write failure retains pending settings for retry.
 

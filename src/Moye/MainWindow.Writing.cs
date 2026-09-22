@@ -146,8 +146,8 @@ public partial class MainWindow
             panel.Children.Add(new TextBlock { Text = $"{number}  {preset.Name}", MaxWidth = 105, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
             bool active = _workingPreset.Id == preset.Id && _tool == preset.Tool;
             var button = new Button { Content = panel, Tag = preset.Id, MinHeight = 44, Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 0, 4, 0), AllowDrop = true,
-                Background = active ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent,
-                ToolTip = $"{preset.Name} · {preset.Width * 25.4 / 96:0.##} mm ({number})\nDrag to reorder. Use Presets to edit or hide." };
+                Background = active ? (Brush)FindResource("AccentSoft") : Brushes.Transparent,
+                ToolTip = $"{preset.Name} · {preset.Width * 25.4 / 96:0.##} mm ({number})\nDrag to reorder. Use Manage pens to edit or hide." };
             System.Windows.Automation.AutomationProperties.SetName(button, $"Preset {number}: {preset.Name}");
             button.Click += (_, _) => { ApplyPreset(preset); PageList.Focus(); };
             button.PreviewMouseLeftButtonDown += (_, e) => { if (!PenInkCanvas.IsTouch(e.StylusDevice)) _presetDragStart = e.GetPosition(button); };
@@ -168,7 +168,7 @@ public partial class MainWindow
             };
             FavouritePresets.Children.Add(button);
         }
-        if (index == 0) FavouritePresets.Children.Add(new TextBlock { Text = "Add favourites in Presets", VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.SlateGray, Margin = new Thickness(8) });
+        if (index == 0) FavouritePresets.Children.Add(new TextBlock { Text = "Add favorites in Manage pens", VerticalAlignment = VerticalAlignment.Center, Foreground = (Brush)FindResource("MutedInk"), Margin = new Thickness(8) });
     }
 
     private void ManagePresetsClick(object sender, RoutedEventArgs e)

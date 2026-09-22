@@ -1,10 +1,10 @@
 # Moye notebook formats
 
-Moye 1.7.0 introduced notebook sections; Moye 1.8.0 uses the same file formats. Application versions, SQLite schema versions and backup format versions are independent.
+Moye 1.7.0 introduced notebook sections; Moye 1.8.0 and 1.9.0 use the same file formats. Application versions, SQLite schema versions and backup format versions are independent.
 
 ## Compatibility
 
-| File | Moye 1.7.0–1.8.0 writer | Moye 1.7.0–1.8.0 reader | Moye 1.6.2 and earlier |
+| File | Moye 1.7.0–1.9.0 writer | Moye 1.7.0–1.9.0 reader | Moye 1.6.2 and earlier |
 |---|---|---|---|
 | SQLite library | Schema 2 | Migrates schema 0/1; reads 2 | Reject schema 2 |
 | `.moye` backup | Format 2 | Reads 1 and 2 | Reject format 2 |
@@ -37,6 +37,8 @@ JSON uses UTF-8 and camel-case property names. The model in [DocumentModels.cs](
 Pages also contain `template`, `texts`, `images`, and an optional `pdf` background reference. Paper templates use stable integer values: Blank 0, Ruled 1, Grid 2, Dot Grid 3, Cornell 4 and Graph 5. Geometry uses fixed 96-DPI page coordinates; display zoom never changes stored coordinates. Text includes font family, size in DIP, bold, italic, alignment and color. Images reference original assets; PDF references retain the original PDF asset and page/crop/rotation metadata. Ink is vector ISF with pressure information, not a flattened bitmap.
 
 ## SQLite schema 2
+
+Moye 1.9.0 also imports Office documents by converting them locally to PDF. These pages use the existing PDF asset/reference fields, so no format migration is required. Backups contain the converted PDF and editable Moye annotations; the original DOCX, PPTX, PPSX, ODT or ODP file remains outside the notebook and is not modified.
 
 The library uses `PRAGMA user_version=2`, foreign keys and WAL transactions. `notebooks` stores notebook identity, title, category and timestamps. `sections` stores `(notebook_id, id, ordinal, title)` with a composite primary key and a cascading notebook foreign key. `pages` stores notebook/page identity, global ordinal, JSON metadata, an ISF BLOB and a content hash. The metadata contains `sectionId`; section membership is validated by the application. `assets` stores original attachment bytes keyed by a SHA-256 content hash.
 

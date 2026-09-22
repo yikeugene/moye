@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using Moye.Models;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
+using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
 using Windows.Storage.Streams;
 using NativePdf = Windows.Data.Pdf.PdfDocument;
@@ -41,16 +42,31 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
         for (uint index = 0; index < native.PageCount; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var page = native.GetPage(index);
-            var size = page.Size;
-            if (!ValidDimension(size.Width) || !ValidDimension(size.Height))
-                throw new InvalidDataException("The PDF contains an unsupported page size.");
-            metadata[(int)index].Width = size.Width;
-            metadata[(int)index].Height = size.Height;
-            // Force a small render: loading a PDF alone need not validate its content stream.
-            using var output = new InMemoryRandomAccessStream();
-            await page.RenderToStreamAsync(output, new Windows.Data.Pdf.PdfPageRenderOptions { DestinationWidth = 32 })
-                .AsTask(cancellationToken);
+            try
+            {
+                using var page = native.GetPage(index);
+                var size = page.Size;
+                if (!ValidDimension(size.Width) || !ValidDimension(size.Height))
+                    throw new InvalidDataException("The page has an unsupported size.");
+                metadata[(int)index].Width = size.Width;
+                metadata[(int)index].Height = size.Height;
+                await page.PreparePageAsync().AsTask(cancellationToken);
+                // Bound BOTH dimensions: width alone can request an enormous
+                // raster for a narrow page, or round a panoramic page to zero height.
+                var probeScale = 32 / Math.Max(size.Width, size.Height);
+                using var output = new InMemoryRandomAccessStream();
+                await page.RenderToStreamAsync(output, new Windows.Data.Pdf.PdfPageRenderOptions
+                {
+                    DestinationWidth = (uint)Math.Max(1, Math.Round(size.Width * probeScale)),
+                    DestinationHeight = (uint)Math.Max(1, Math.Round(size.Height * probeScale)),
+                    IsIgnoringHighContrast = true
+                }).AsTask(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                throw new InvalidDataException($"Unable to read PDF page {index + 1}. The file was not imported. " +
+                    "Try saving a fresh PDF copy from the source application.", ex);
+            }
         }
         cancellationToken.ThrowIfCancellationRequested();
         var asset = await repository.PutAssetAsync(Path.GetFileName(path), "application/pdf", bytes);
@@ -185,7 +201,7 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
                             }
                             var color = group.Key;
                             graphics.DrawPath(new XSolidBrush(XColor.FromArgb(128, color.R, color.G, color.B)),
-                                new XGraphicsPath(PathGeometry.CreateFromGeometry(union!)));
+                                ToPdfPath(union!));
                         }
                         foreach (var stroke in strokes.Where(s => !s.DrawingAttributes.IsHighlighter))
                         {
@@ -193,9 +209,7 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
                             var attributes = stroke.DrawingAttributes;
                             var color = attributes.Color;
                             var brush = new XSolidBrush(XColor.FromArgb(color.A, color.R, color.G, color.B));
-                            var geometry = PathGeometry.CreateFromGeometry(stroke.GetGeometry());
-                            var pathGeometry = new XGraphicsPath(geometry);
-                            graphics.DrawPath(brush, pathGeometry);
+                            graphics.DrawPath(brush, ToPdfPath(stroke.GetGeometry()));
                         }
                     }
                     graphics.Dispose(); // Commit the appended content before encoding it.
@@ -225,7 +239,7 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
             var page = document.Pages[index];
             var crop = VisibleBox(page);
             var rotation = ((page.Rotate % 360) + 360) % 360;
-            if (rotation % 90 != 0) throw new InvalidDataException("The PDF page rotation is not supported.");
+            if (rotation % 90 != 0) throw new InvalidDataException($"PDF page {index + 1}: The page rotation is not supported.");
             pages.Add(new NotePage { Pdf = new PdfPageSource { PageIndex = index, Rotation = rotation,
                 CropX = crop.X1, CropY = crop.Y1, CropWidth = crop.Width, CropHeight = crop.Height } });
         }
@@ -241,34 +255,65 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
         {
             if (document.SecuritySettings.IsEncrypted) throw new InvalidDataException("Encrypted PDFs are not supported. Save an unencrypted copy and try again.");
             var catalog = document.Internals.Catalog;
-            if (catalog.Elements.ContainsKey("/AcroForm") || catalog.Elements.ContainsKey("/Perms"))
+            if (HasInteractiveForm(catalog) || ReadPdfEntry(catalog, "/Perms") is not null)
                 throw new InvalidDataException("PDF forms and digital signatures are not supported. Export a standard PDF first.");
             foreach (var item in document.Internals.GetAllObjects().OfType<PdfDictionary>())
                 if (item.Elements.GetName("/Type") == "/Sig" || item.Elements.GetName("/FT") == "/Sig")
                     throw new InvalidDataException("PDFs containing digital signatures are not supported.");
-            foreach (var page in document.Pages)
+            for (var pageIndex = 0; pageIndex < document.PageCount; pageIndex++)
             {
-                _ = VisibleBox(page);
-                var userUnit = page.Elements.GetReal("/UserUnit");
-                if (userUnit != 0 && userUnit != 1) throw new InvalidDataException("The PDF uses custom page units. Save it as a standard PDF first.");
-                var annotations = page.Elements.GetArray("/Annots");
-                if (annotations is null) continue;
-                for (var index = 0; index < annotations.Elements.Count; index++)
-                {
-                    var annotation = annotations.Elements.GetDictionary(index);
-                    var subtype = annotation?.Elements.GetName("/Subtype");
-                    if (subtype is not ("/Text" or "/FreeText" or "/Square" or "/Circle" or "/Highlight" or "/Underline"
-                        or "/StrikeOut" or "/Squiggly" or "/Ink" or "/Stamp" or "/Line" or "/Polygon" or "/PolyLine" or "/Caret" or "/Popup" or "/Link"))
-                        throw new InvalidDataException("The PDF contains unsupported interactive annotations. Flatten its annotations before importing.");
-                    var action = annotation!.Elements.GetDictionary("/A");
-                    if (annotation.Elements.ContainsKey("/Dest") || annotation.Elements.ContainsKey("/AA") ||
-                        (action is not null && action.Elements.GetName("/S") != "/URI"))
-                        throw new InvalidDataException("The PDF contains annotations that are interactive or reference other pages. Flatten them before importing to preserve their content when pages are reordered.");
-                }
+                try { ValidateStaticPage(document.Pages[pageIndex]); }
+                catch (InvalidDataException ex) { throw new InvalidDataException($"PDF page {pageIndex + 1}: {ex.Message}", ex); }
             }
             return document;
         }
         catch { document.Dispose(); throw; }
+    }
+
+    private static void ValidateStaticPage(PdfPage page)
+    {
+        _ = VisibleBox(page);
+        var userUnit = page.Elements.GetReal("/UserUnit");
+        if (userUnit != 0 && userUnit != 1) throw new InvalidDataException("The PDF uses custom page units. Save it as a standard PDF first.");
+        var annotations = page.Elements.GetArray("/Annots");
+        if (annotations is null) return;
+        for (var index = 0; index < annotations.Elements.Count; index++)
+        {
+            var annotation = annotations.Elements.GetDictionary(index);
+            var subtype = annotation?.Elements.GetName("/Subtype");
+            if (subtype is not ("/Text" or "/FreeText" or "/Square" or "/Circle" or "/Highlight" or "/Underline"
+                or "/StrikeOut" or "/Squiggly" or "/Ink" or "/Stamp" or "/Line" or "/Polygon" or "/PolyLine" or "/Caret" or "/Popup" or "/Link"))
+                throw new InvalidDataException("The PDF contains unsupported interactive annotations. Flatten its annotations before importing.");
+            var action = ReadPdfEntry(annotation!, "/A");
+            if (ReadPdfEntry(annotation!, "/Dest") is not null || ReadPdfEntry(annotation!, "/AA") is not null ||
+                (action is not null && (action is not PdfDictionary actionDictionary || actionDictionary.Elements.GetName("/S") != "/URI")))
+                throw new InvalidDataException("The PDF contains annotations that are interactive or reference other pages. Flatten them before importing to preserve their content when pages are reordered.");
+        }
+    }
+
+    private static bool HasInteractiveForm(PdfDictionary catalog)
+    {
+        var entry = ReadPdfEntry(catalog, "/AcroForm");
+        if (entry is null) return false;
+        if (entry is not PdfDictionary form) return true;
+        // PDF producers may leave the form dictionary and default appearance
+        // metadata after flattening its last field. An empty shell has no
+        // interactive content to lose when importing or exporting page copies.
+        var fields = ReadPdfEntry(form, "/Fields");
+        if (fields is not null && (fields is not PdfArray array || array.Elements.Count != 0)) return true;
+        if (ReadPdfEntry(form, "/XFA") is not null ||
+            (ReadPdfEntry(form, "/SigFlags") is not null && form.Elements.GetInteger("/SigFlags") != 0)) return true;
+        var calculations = ReadPdfEntry(form, "/CO");
+        return calculations is not null && (calculations is not PdfArray order || order.Elements.Count != 0);
+    }
+
+    private static PdfItem? ReadPdfEntry(PdfDictionary dictionary, string key)
+    {
+        var value = dictionary.Elements[key];
+        if (value is PdfReference reference) value = reference.Value;
+        // PDF dictionary null values, including indirect null objects, mean
+        // the same thing as a missing optional entry (ISO 32000-1, 7.3.9).
+        return value is PdfNull or PdfNullObject ? null : value;
     }
 
     private static int AnnotationCount(PdfPage page) => page.Elements.GetArray("/Annots")?.Elements.Count ?? 0;
@@ -305,6 +350,19 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
         };
     }
 
+    private static XGraphicsPath ToPdfPath(Geometry geometry)
+    {
+        var path = PathGeometry.CreateFromGeometry(geometry);
+        // PDFsharp 6.2.4 clones the WPF geometry but leaves its separate PDF
+        // fill mode at Alternate. Ink uses Nonzero: Alternate cuts white holes
+        // where its pressure contours overlap. Preserve each geometry's rule,
+        // including the counters in outlined text, without rasterizing it.
+        return new XGraphicsPath(path)
+        {
+            FillMode = path.FillRule == FillRule.Nonzero ? XFillMode.Winding : XFillMode.Alternate
+        };
+    }
+
     private static void DrawText(XGraphics graphics, NoteText text)
     {
         if (string.IsNullOrEmpty(text.Text)) return;
@@ -323,10 +381,10 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
                 _ => TextAlignment.Left
             }
         };
-        var geometry = PathGeometry.CreateFromGeometry(formatted.BuildGeometry(new Point(text.X + NoteTextLayout.HorizontalInset, text.Y)));
+        var geometry = formatted.BuildGeometry(new Point(text.X + NoteTextLayout.HorizontalInset, text.Y));
         var state = graphics.Save();
         graphics.IntersectClip(new XRect(text.X, text.Y, Math.Max(1, text.Width), Math.Max(1, text.Height)));
-        graphics.DrawPath(new XSolidBrush(XColor.FromArgb(color.A, color.R, color.G, color.B)), new XGraphicsPath(geometry));
+        graphics.DrawPath(new XSolidBrush(XColor.FromArgb(color.A, color.R, color.G, color.B)), ToPdfPath(geometry));
         graphics.Restore(state);
     }
 

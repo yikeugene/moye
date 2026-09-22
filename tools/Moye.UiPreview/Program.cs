@@ -31,9 +31,11 @@ internal static class Program
             var repositoryRoot = Path.GetFullPath(args.FirstOrDefault() ?? Directory.GetCurrentDirectory());
             var output = Path.Combine(repositoryRoot, "artifacts");
             Directory.CreateDirectory(output);
+            if (args.Contains("--office-import-smoke", StringComparer.Ordinal))
+                return OfficeImportSmoke.RunAsync(repositoryRoot).GetAwaiter().GetResult();
             if (args.Contains("--interactive", StringComparer.Ordinal))
                 return InteractivePreview.Run(ReadApplicationResources(Path.Combine(repositoryRoot, "src", "Moye", "App.xaml")),
-                    output);
+                    output, args.Contains("--compact", StringComparer.Ordinal));
             RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             application.Resources = ReadApplicationResources(Path.Combine(repositoryRoot, "src", "Moye", "App.xaml"));
@@ -59,20 +61,45 @@ internal static class Program
             content.SnapsToDevicePixels = window.SnapsToDevicePixels;
 
             var reports = new List<PreviewReport>();
-            foreach (var state in new[] { "library", "library-empty", "library-search" })
+            foreach (var state in new[] { "library", "library-empty", "library-search", "library-empty-search" })
             {
-                repository.IncludeDocument = state != "library-empty";
-                window.ViewModel.Search = state == "library-search" ? "no matching notebook" : "";
+                repository.IncludeDocument = !state.StartsWith("library-empty", StringComparison.Ordinal);
+                window.ViewModel.Search = state.EndsWith("-search", StringComparison.Ordinal) ? "no matching notebook" : "";
                 window.ViewModel.RefreshLibraryAsync().GetAwaiter().GetResult();
                 foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
                 {
                     var fileName = $"ui-preview-{state}-{width}.png";
                     SaveImage(output, fileName, RenderElement(content, width, height));
                     VerifyDetached(content, window);
+                    VerifyLibraryState(window, content, state);
                     reports.Add(MeasureButtons(content, width, height, fileName, state,
-                        state == "library" ? ["HomeNewNotebookButton", "DeleteNotebookButton"] : ["HomeNewNotebookButton"]));
+                        state switch
+                        {
+                            "library" => ["HomeNewNotebookButton", "NotebookOptionsButton"],
+                            "library-search" or "library-empty-search" => ["HomeNewNotebookButton", "ClearHomeSearchButton", "EmptyLibraryClearSearchButton"],
+                            _ => ["HomeNewNotebookButton", "EmptyLibraryCreateButton"]
+                        }));
+                    if (state == "library")
+                    {
+                        VerifyNotebookCards(content, repository.LibraryCount);
+                        var libraryScroll = Descendants<ScrollViewer>(content).Single(viewer =>
+                            Descendants<ItemsControl>(viewer).Any(items => items.Name == "HomeNotebookCards"));
+                        if (libraryScroll.ScrollableHeight > 0)
+                        {
+                            libraryScroll.ScrollToBottom();
+                            var bottomImage = $"ui-preview-library-bottom-{width}.png";
+                            SaveImage(output, bottomImage, RenderElement(content, width, height));
+                            reports.Add(MeasureButtons(content, width, height, bottomImage, "library-bottom", "HomeNewNotebookButton", "NotebookOptionsButton"));
+                            if (!Descendants<Button>(content).Any(button => button.DataContext is NotebookSummary summary &&
+                                    summary.Id == "fixture-personal" && HasVisibleAncestors(button) && InsideScrollViewports(button, content)))
+                                throw new InvalidOperationException("The final notebook must remain reachable by scrolling at the compact window size.");
+                            libraryScroll.ScrollToTop();
+                            Arrange(content, width, height);
+                        }
+                    }
                 }
             }
+            VerifyLibrarySearchRecovery(window, content, repository);
             repository.IncludeDocument = true;
             window.ViewModel.Search = "";
             window.ViewModel.RefreshLibraryAsync().GetAwaiter().GetResult();
@@ -81,7 +108,7 @@ internal static class Program
                 throw new InvalidOperationException("Opening a notebook should display the editor.");
             window.ViewModel.Status = "Saved on this device";
             var penButton = (Button)window.FindName("PenButton");
-            penButton.Background = new SolidColorBrush(Color.FromRgb(237, 242, 254));
+            penButton.Background = (Brush)application.Resources["Selection"];
             penButton.Foreground = (Brush)application.Resources["Accent"];
             foreach (var page in window.ViewModel.Pages)
             {
@@ -123,7 +150,9 @@ internal static class Program
                 var bitmap = RenderElement(content, width, height);
                 var fileName = fitMode == "width" ? $"ui-preview-fit-width-{width}.png" : $"ui-preview-{width}.png";
                 SaveImage(output, fileName, bitmap);
-                var report = MeasureButtons(content, width, height, fileName, fitMode == "width" ? "editor-fit-width" : "editor", "PenButton", "PenSettingsButton", "FitWidthButton", "AddSectionButton", "SectionOptionsButton") with
+                var report = MeasureButtons(content, width, height, fileName, fitMode == "width" ? "editor-fit-width" : "editor",
+                    "PenButton", "Highlighter", "Eraser", "Lasso", "Type", "Select", "PenSettingsButton", "Undo", "Redo",
+                    "FitWidthButton", "Focus Mode", "Zoom In", "Zoom Out", "AddSectionButton", "SectionOptionsButton") with
                 {
                     ViewportWidth = Round(viewport.ActualWidth), ViewportHeight = Round(viewport.ActualHeight),
                     Zoom = window.ViewModel.Zoom
@@ -251,7 +280,7 @@ internal static class Program
                 if (scene == "eraser-settings")
                 {
                     var selected = (Button)window.FindName("PointEraseOption");
-                    selected.Background = new SolidColorBrush(Color.FromRgb(237, 242, 254));
+                    selected.Background = (Brush)application.Resources["Selection"];
                     selected.Foreground = (Brush)application.Resources["Accent"];
                     selected.BorderBrush = (Brush)application.Resources["Accent"];
                     selected.BorderThickness = new Thickness(1);
@@ -267,6 +296,26 @@ internal static class Program
                 reports.Add(scene == "pen-settings" ? MeasureSliders(report, popupContent) : report);
                 if (scene == "pen-settings") VerifyWidthPreviews(window, popupContent, width, height, output, reports);
             }
+
+            window.ViewModel.Operation = "Converting document into note pages…";
+            window.ViewModel.IsBusy = true;
+            var cancelImport = (Button)window.FindName("CancelDocumentImportButton");
+            cancelImport.Visibility = Visibility.Visible;
+            foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
+            {
+                var fileName = $"ui-preview-document-import-{width}.png";
+                SaveImage(output, fileName, RenderElement(content, width, height));
+                VerifyDetached(content, window);
+                var cancelBounds = cancelImport.TransformToAncestor(content).TransformBounds(new Rect(cancelImport.RenderSize));
+                var hit = VisualTreeHelper.HitTest(content, new Point(cancelBounds.Left + cancelBounds.Width / 2,
+                    cancelBounds.Top + cancelBounds.Height / 2))?.VisualHit;
+                while (hit is not null && hit != cancelImport) hit = VisualTreeHelper.GetParent(hit);
+                if (hit != cancelImport || !cancelImport.IsEnabled)
+                    throw new InvalidOperationException("Cancel Import must remain enabled and visually reachable above the busy overlay.");
+                reports.Add(MeasureButtons(content, width, height, fileName, "document-import", "CancelDocumentImportButton"));
+            }
+            cancelImport.Visibility = Visibility.Collapsed;
+            window.ViewModel.IsBusy = false;
 
             foreach (var report in reports)
                 Console.WriteLine($"{report.Image}: {report.Width} x {report.Height} DIP; {report.Buttons.Count} buttons; " +
@@ -290,6 +339,101 @@ internal static class Program
     {
         if (PresentationSource.FromVisual(content) is not null || new WindowInteropHelper(window).Handle != IntPtr.Zero)
             throw new InvalidOperationException("The preview unexpectedly became attached to a native window.");
+    }
+
+    private static void VerifyLibraryState(MainWindow window, FrameworkElement content, string scene)
+    {
+        var viewModel = window.ViewModel;
+        bool Visible(string name) => window.FindName(name) is FrameworkElement element &&
+            HasVisibleAncestors(element) && element.ActualWidth > 0 && element.ActualHeight > 0;
+        var noResults = scene.EndsWith("-search", StringComparison.Ordinal);
+        var firstRun = scene == "library-empty";
+        if (viewModel.HasSearch != noResults ||
+            (scene.StartsWith("library-empty", StringComparison.Ordinal) && viewModel.HasNotebooks))
+            throw new InvalidOperationException("Search recovery must also be available when the library has no notebooks.");
+        if (Visible("EmptyLibraryClearSearchButton") != noResults ||
+            Visible("EmptyLibraryCreateButton") != firstRun ||
+            Visible("ClearHomeSearchButton") != noResults)
+            throw new InvalidOperationException("The first-run library must offer Create a Notebook; a search with no matches must offer Clear Search.");
+        if ((noResults || firstRun) && !Descendants<TextBlock>(content).Any(text =>
+                HasVisibleAncestors(text) && text.Text == viewModel.EmptyLibraryTitle))
+            throw new InvalidOperationException("An empty library state must display its corresponding explanation.");
+        if (!Descendants<TextBlock>(content).Any(text => HasVisibleAncestors(text) && text.Text == viewModel.LibraryCountText))
+            throw new InvalidOperationException("The library must display the count for the current search.");
+
+        foreach (var name in new[] { "HomeNewNotebookButton", "HomeSearch", "ClearHomeSearchButton", "EmptyLibraryClearSearchButton", "EmptyLibraryCreateButton" })
+        {
+            if (window.FindName(name) is not Control control || !Visible(name)) continue;
+            if (!control.Focusable || !control.IsTabStop || string.IsNullOrWhiteSpace(ControlName(control)))
+                throw new InvalidOperationException($"The visible library control {name} must have a keyboard tab stop and a readable label.");
+            if (control.ActualHeight < 44 || control.ActualWidth < 44)
+                throw new InvalidOperationException($"The library control {name} must provide at least a 44 DIP target.");
+        }
+    }
+
+    private static void VerifyNotebookCards(FrameworkElement content, int expectedCount)
+    {
+        var options = Descendants<Button>(content).Where(button => button.Name == "NotebookOptionsButton").ToArray();
+        if (options.Length != expectedCount)
+            throw new InvalidOperationException("Every notebook card must have its own options button.");
+        foreach (var button in options)
+        {
+            if (button.DataContext is not NotebookSummary summary || button.ContextMenu is not { } menu || menu.IsOpen)
+                throw new InvalidOperationException("Notebook menu checks require an unopened menu associated with a notebook summary.");
+            // Match MoreClick's placement assignment without opening a popup or
+            // invoking either the open or destructive delete command.
+            menu.PlacementTarget = button;
+            menu.GetBindingExpression(FrameworkElement.DataContextProperty)?.UpdateTarget();
+            menu.ApplyTemplate();
+            var actions = menu.Items.OfType<MenuItem>().ToArray();
+            if (!ReferenceEquals(menu.DataContext, summary) || actions.Length != 2 ||
+                actions.Any(action => !ReferenceEquals(action.DataContext, summary)))
+                throw new InvalidOperationException($"Options for {summary.Title} must pass that notebook to both menu actions.");
+            if (menu.IsOpen || PresentationSource.FromVisual(menu) is not null)
+                throw new InvalidOperationException("Notebook menu verification must remain detached and unopened.");
+        }
+
+        var covers = Descendants<Border>(content).Where(border => border.Name == "NotebookCover").ToArray();
+        if (covers.Length != expectedCount || covers.Any(cover => cover.Background is not SolidColorBrush) ||
+            covers.Select(cover => ((SolidColorBrush)cover.Background).Color).Distinct().Count() != Math.Min(expectedCount, 4))
+            throw new InvalidOperationException("The four notebook cards must resolve distinct cover colors through their actual item containers.");
+    }
+
+    private static void VerifyLibrarySearchRecovery(MainWindow window, FrameworkElement content, FixtureRepository repository)
+    {
+        repository.IncludeDocument = true;
+        window.ViewModel.RefreshLibraryAsync().GetAwaiter().GetResult();
+        window.ViewModel.Search = "no matching notebook";
+        Arrange(content, 1024, 700);
+        var clear = (Button)window.FindName("EmptyLibraryClearSearchButton");
+        clear.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Arrange(content, 1024, 700);
+        if (window.ViewModel.Search.Length != 0 || window.ViewModel.Notebooks.Count != repository.LibraryCount)
+            throw new InvalidOperationException("Clear Search must immediately restore all existing notebooks.");
+        VerifyLibraryState(window, content, "library");
+        window.ViewModel.Search = "MATHEMATICS";
+        if (window.ViewModel.Notebooks.Count != 1 || window.ViewModel.Notebooks[0].Id != repository.Document.Id)
+            throw new InvalidOperationException("The library must match notebook titles without requiring matching case.");
+        window.ViewModel.Search = "PROJECTS";
+        Arrange(content, 1024, 700);
+        if (window.ViewModel.Notebooks.Count != 2)
+            throw new InvalidOperationException("The library fixture's category search must find both matching notebooks, ignoring case.");
+        ((Button)window.FindName("ClearHomeSearchButton")).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        if (window.ViewModel.Search.Length != 0 || window.ViewModel.Notebooks.Count != repository.LibraryCount)
+            throw new InvalidOperationException("The search field's clear action must restore all existing notebooks.");
+        repository.IncludeDocument = false;
+        window.ViewModel.RefreshLibraryAsync().GetAwaiter().GetResult();
+        window.ViewModel.Search = "a notebook that has not been created";
+        Arrange(content, 1024, 700);
+        VerifyLibraryState(window, content, "library-empty-search");
+        clear.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Arrange(content, 1024, 700);
+        if (window.ViewModel.HasSearch || window.ViewModel.HasNotebooks || window.ViewModel.Notebooks.Count != 0)
+            throw new InvalidOperationException("Clearing an empty library's search must return to its first-run create action without creating a notebook.");
+        VerifyLibraryState(window, content, "library-empty");
+        // Routed commands above check the recovery behavior. Real keyboard focus
+        // and tab traversal require the separate --interactive desktop harness.
+        Console.WriteLine("Library recovery checks passed: distinct first-run/search actions, readable keyboard tab stops, title/category filtering, and both clear-search commands.");
     }
 
     private static void VerifyThumbnailScheduling(MainWindow window, FixtureRepository repository, string output)
@@ -674,7 +818,7 @@ internal static class Program
                 return new ButtonBounds(ControlName(button), Round(bounds.X), Round(bounds.Y), Round(bounds.Width), Round(bounds.Height), button.IsEnabled);
             }).ToList();
         if (buttons.Count == 0 || requiredNames.Any(name => !visibleButtons.Any(button => button.Name == name || ControlName(button) == name)))
-            throw new InvalidOperationException($"The required {scene} controls were not laid out; missing controls cannot count as a passing preview.");
+            throw new InvalidOperationException($"The required {scene} controls were not laid out: {string.Join(", ", requiredNames.Where(name => !visibleButtons.Any(button => button.Name == name || ControlName(button) == name)))}. Missing or scroll-hidden controls cannot count as a passing preview.");
         var overlaps = new List<string>();
         for (var i = 0; i < buttons.Count; i++)
         for (var j = i + 1; j < buttons.Count; j++)
@@ -805,6 +949,7 @@ internal static class Program
     private sealed class FixtureRepository : INotebookRepository
     {
         public bool IncludeDocument { get; set; } = true;
+        public int LibraryCount => 4;
         public NotebookDocument Document { get; } = new()
         {
             Id = "offline-ui-preview-fixture", Title = "Mathematics", Folder = "Semester 1",
@@ -833,7 +978,12 @@ internal static class Program
         };
         public NotebookSummary Summary => new() { Id = Document.Id, Title = Document.Title, Folder = Document.Folder, PageCount = Document.Pages.Count, ModifiedUtc = Document.ModifiedUtc };
         public Task InitializeAsync() => Task.CompletedTask;
-        public Task<IReadOnlyList<NotebookSummary>> ListAsync() => Task.FromResult<IReadOnlyList<NotebookSummary>>(IncludeDocument ? [Summary] : []);
+        public Task<IReadOnlyList<NotebookSummary>> ListAsync() => Task.FromResult<IReadOnlyList<NotebookSummary>>(IncludeDocument
+            ? [Summary,
+                new() { Id = "fixture-design", Title = "Design journal", Folder = "Projects", PageCount = 12, ModifiedUtc = Document.ModifiedUtc },
+                new() { Id = "fixture-planning", Title = "Research notes and ideas for the next semester", Folder = "Projects", PageCount = 28, ModifiedUtc = Document.ModifiedUtc },
+                new() { Id = "fixture-personal", Title = "Everyday thoughts", Folder = "Personal", PageCount = 3, ModifiedUtc = Document.ModifiedUtc }]
+            : []);
         public Task<NotebookDocument?> LoadAsync(string id) => Task.FromResult<NotebookDocument?>(id == Document.Id ? Document.Snapshot() : null);
         public Task SaveAsync(NotebookDocument document) => throw new InvalidOperationException("This preview fixture does not support persistence.");
         public Task DeleteAsync(string id) => throw new InvalidOperationException("This preview fixture does not support deletion.");

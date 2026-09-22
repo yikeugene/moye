@@ -163,7 +163,16 @@ public sealed class PdfTests : IDisposable
         {
             using var document = new PdfDocument(); document.AddPage();
             if (kind == "encrypted") document.SecuritySettings.UserPassword = "password";
-            if (kind == "form") document.Internals.Catalog.Elements["/AcroForm"] = new PdfDictionary(document);
+            if (kind == "form")
+            {
+                var form = new PdfDictionary(document);
+                var field = new PdfDictionary(document);
+                field.Elements.SetName("/FT", "/Tx");
+                field.Elements.SetString("/T", "Input");
+                var fields = new PdfArray(document); fields.Elements.Add(field);
+                form.Elements["/Fields"] = fields;
+                document.Internals.Catalog.Elements["/AcroForm"] = form;
+            }
             if (kind == "signature") document.Internals.Catalog.Elements["/Perms"] = new PdfDictionary(document);
             document.Save(input);
         });

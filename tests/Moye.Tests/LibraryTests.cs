@@ -169,16 +169,75 @@ public sealed class LibraryTests
 
         viewModel.Search = "not a matching title";
 
+        Assert.True(viewModel.HasSearch);
         Assert.True(viewModel.HasNotebooks);
         Assert.False(viewModel.HasVisibleNotebooks);
         Assert.Equal("0 of 1 notebooks", viewModel.LibraryCountText);
         Assert.Equal("No notebooks found", viewModel.EmptyLibraryTitle);
+        Assert.Equal("Try another notebook name or category, or clear your search.", viewModel.EmptyLibraryDescription);
+        Assert.Contains(nameof(MainViewModel.HasSearch), notifications);
         Assert.Contains(nameof(MainViewModel.HasVisibleNotebooks), notifications);
         Assert.Contains(nameof(MainViewModel.LibraryCountText), notifications);
         Assert.Contains(nameof(MainViewModel.EmptyLibraryDescription), notifications);
         viewModel.Search = "work";
+        Assert.True(viewModel.HasSearch);
         Assert.True(viewModel.HasVisibleNotebooks);
         Assert.Single(viewModel.Notebooks);
+
+        notifications.Clear();
+        viewModel.Search = "";
+        Assert.False(viewModel.HasSearch);
+        Assert.True(viewModel.HasVisibleNotebooks);
+        Assert.Equal("1 notebook", viewModel.LibraryCountText);
+        Assert.Contains(nameof(MainViewModel.HasSearch), notifications);
+    }
+
+    [Fact]
+    public async Task WhitespaceSearchCanBeClearedWithoutHidingNotebooks()
+    {
+        using var directory = new StorageTestDirectory();
+        using var viewModel = new MainViewModel(new SqliteNotebookRepository(directory.DatabasePath));
+        await viewModel.CreateAsync("Research", "Work");
+        await viewModel.ReturnToLibraryAsync();
+
+        viewModel.Search = "   ";
+
+        Assert.True(viewModel.HasSearch);
+        Assert.True(viewModel.HasVisibleNotebooks);
+        Assert.Equal("Research", Assert.Single(viewModel.Notebooks).Title);
+        Assert.Equal("1 notebook", viewModel.LibraryCountText);
+
+        viewModel.Search = "";
+
+        Assert.False(viewModel.HasSearch);
+        Assert.Equal("Research", Assert.Single(viewModel.Notebooks).Title);
+    }
+
+    [Theory]
+    [InlineData("missing notebook")]
+    [InlineData("   ")]
+    public async Task ClearingSearchInAnEmptyLibraryRestoresFirstNotebookGuidance(string search)
+    {
+        using var directory = new StorageTestDirectory();
+        using var viewModel = new MainViewModel(new SqliteNotebookRepository(directory.DatabasePath));
+        await viewModel.InitializeAsync();
+        Assert.False(viewModel.HasSearch);
+        Assert.Equal("Your next idea starts here", viewModel.EmptyLibraryTitle);
+
+        viewModel.Search = search;
+
+        Assert.True(viewModel.HasSearch);
+        Assert.False(viewModel.HasNotebooks);
+        Assert.False(viewModel.HasVisibleNotebooks);
+        Assert.Equal("No notebooks found", viewModel.EmptyLibraryTitle);
+        Assert.Equal("Try another notebook name or category, or clear your search.", viewModel.EmptyLibraryDescription);
+
+        viewModel.Search = "";
+
+        Assert.False(viewModel.HasSearch);
+        Assert.Equal("Your next idea starts here", viewModel.EmptyLibraryTitle);
+        Assert.Equal("Create a notebook and choose the paper that works for you.", viewModel.EmptyLibraryDescription);
+        Assert.Empty(await viewModel.Repository.ListAsync());
     }
 
     [Fact]

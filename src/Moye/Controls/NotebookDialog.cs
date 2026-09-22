@@ -40,9 +40,9 @@ public sealed class NotebookDialog : Window
         });
         panel.Children.Add(new TextBlock
         {
-            Text = "Give your ideas a home and choose your paper.",
-            Foreground = new SolidColorBrush(Color.FromRgb(102, 116, 138)),
-            Margin = new Thickness(0, 0, 0, 22)
+            Text = "A fresh place for your ideas. Make it yours.",
+            Foreground = (Brush)FindResource("MutedInk"), TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 24)
         });
 
         _title = AddField(panel, "Notebook name", title);
@@ -50,8 +50,8 @@ public sealed class NotebookDialog : Window
         panel.Children.Add(new TextBlock { Text = "Paper template", FontWeight = FontWeights.SemiBold });
         panel.Children.Add(new TextBlock
         {
-            Text = "A4 paper. You can change the template for each page later.",
-            FontSize = 12, Foreground = new SolidColorBrush(Color.FromRgb(102, 116, 138)),
+            Text = "Choose a starting page. Each page can use its own A4 template.",
+            FontSize = 12, Foreground = (Brush)FindResource("MutedInk"),
             Margin = new Thickness(0, 5, 0, 10), TextWrapping = TextWrapping.Wrap
         });
         _paper = new PaperTemplatePicker { SelectedTemplate = template, Margin = new Thickness(-3, 0, -3, 8) };
@@ -59,11 +59,13 @@ public sealed class NotebookDialog : Window
 
         var error = new TextBlock
         {
-            Foreground = new SolidColorBrush(Color.FromRgb(180, 48, 56)),
+            Foreground = (Brush)FindResource("Danger"),
             TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed,
             Margin = new Thickness(0, 0, 0, 12)
         };
         AutomationProperties.SetLiveSetting(error, AutomationLiveSetting.Assertive);
+        _title.TextChanged += (_, _) => error.Visibility = Visibility.Collapsed;
+        _folder.TextChanged += (_, _) => error.Visibility = Visibility.Collapsed;
         panel.Children.Add(error);
 
         var buttons = new StackPanel
@@ -100,7 +102,7 @@ public sealed class NotebookDialog : Window
     {
         var input = new TextBox { Text = value, MaxLength = 160, Margin = new Thickness(0, 6, 0, 18) };
         AutomationProperties.SetName(input, label);
-        panel.Children.Add(new Label { Content = label, Target = input, Padding = new Thickness(0) });
+        panel.Children.Add(new Label { Content = label, Target = input, Padding = new Thickness(0), FontWeight = FontWeights.SemiBold });
         panel.Children.Add(input);
         return input;
     }

@@ -4,13 +4,15 @@
 
 Moye should support a complete university workflow: write during a lecture, annotate course material, organize knowledge, and revisit it without losing time or notes. This roadmap preserves all 41 requested feature areas. It is a development plan, not a claim that every listed feature is available.
 
-This status reflects **Moye 1.8.0**, reviewed on **2026-09-21**. Version 1.8.0 adds visual color selection, live stroke-thickness previews and touch-navigation scheduling/inertia, while retaining notebook sections and the SQLite startup repair from 1.7.0. The EXE installer continues to create desktop and Start menu shortcuts automatically. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
+This status reflects **Moye 1.9.0**, reviewed on **2026-09-22**. Version 1.9.0 adds the refreshed workspace, local Office document import and PDF compatibility fixes. Version 1.8.0 adds visual color selection, live stroke-thickness previews and touch-navigation scheduling/inertia, while retaining notebook sections and the SQLite startup repair from 1.7.0. The EXE installer continues to create desktop and Start menu shortcuts automatically. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
 
 Version 1.6.0 adds an explicit Type action, contextual text controls and whole-box formatting. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; publication does not mark those outstanding checks complete.
 
 Version 1.8.0 includes visual color palettes for ink, pen presets and text, plus a draggable thickness slider with a live pen/highlighter preview. Mouse checks covered these controls and saved values; physical touch and pen interaction still needs device validation.
 
 The 1.8.0 finger-navigation implementation combines touch packets once per display update, adds elapsed-time swipe inertia, and defers thumbnail work during movement. Synthetic tests cover retained movement, pinch/contact transitions, boundary reversal and cancellation; these are correctness checks, not measured hardware frame-rate or latency acceptance.
+
+**Added in 1.9.0:** local Office document import through **Insert → Import Document…**. DOCX uses installed Microsoft Word or LibreOffice, PPTX/PPSX use PowerPoint or LibreOffice, and ODT/ODP require LibreOffice. Pages become fixed PDF backgrounds in the current section, with editable Moye annotations. The source document remains untouched and only the converted PDF is embedded in the library and backups. No converter is bundled or downloaded.
 
 ## Status and evidence
 
@@ -241,7 +243,9 @@ P2 changes that introduce new persistent fields or document modes need a documen
 
 **Status: Partial. Priority: P1.**
 
-- [x] Import all supported PDF pages into the current notebook after the selected page; retain the original PDF asset.
+- [x] Import all supported PDF pages into the current section; retain the original PDF asset.
+- Implemented in **1.9.0**: append locally converted DOCX/PPTX/PPSX/ODT/ODP pages through **Import Document…**, with **Cancel Import**/Esc and a two-minute conversion timeout. Imported Word text and slide objects are fixed backgrounds; animations, video playback and internal jumps are omitted while ordinary URI links are retained. Unsupported encryption, macros and linked external resources produce an error. An existing PowerPoint session may need to be closed before conversion.
+- [ ] Complete representative Office/LibreOffice layout and conversion acceptance across supported formats and installed application versions. Converter availability and installed fonts affect the result; this does not add editable Word or presentation documents.
 - [ ] Add selected-page/range import and creation of a new notebook directly from a PDF.
 - [ ] Keep clear validation for unsupported files. Encrypted PDFs, interactive forms, signatures and internal/cross-page annotation actions are currently unsupported.
 

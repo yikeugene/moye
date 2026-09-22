@@ -10,7 +10,7 @@ namespace Moye.UiPreview;
 public static class InteractivePreview
 {
     /// <param name="outputDir">The project's artifacts directory.</param>
-    public static int Run(ResourceDictionary resources, string outputDir)
+    public static int Run(ResourceDictionary resources, string outputDir, bool compact = false)
     {
         ArgumentNullException.ThrowIfNull(resources);
         var preferencesDirectory = Path.GetFullPath(Path.Combine(outputDir, "interactive-preview"));
@@ -26,6 +26,7 @@ public static class InteractivePreview
         {
             Title = "Moye · Synthetic UI Test (memory only)"
         };
+        if (compact) { window.Width = 1024; window.Height = 700; }
         return application.Run(window);
     }
 

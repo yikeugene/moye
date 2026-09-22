@@ -16,6 +16,7 @@ public sealed class PaperTemplatePicker : UserControl
             FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnSelectedTemplateChanged));
 
     private readonly Dictionary<PaperTemplate, RadioButton> _choices = [];
+    private readonly Dictionary<PaperTemplate, TextBlock> _selectionMarks = [];
 
     public PaperTemplate SelectedTemplate
     {
@@ -46,7 +47,7 @@ public sealed class PaperTemplatePicker : UserControl
         var paper = new Border
         {
             Width = 40, Height = 56,
-            BorderBrush = Brush("#D7DFEA"), BorderThickness = new Thickness(1),
+            BorderBrush = Brush("#DDE3DC"), BorderThickness = new Thickness(1),
             Background = Brushes.White, Margin = new Thickness(0, 0, 0, 6),
             Child = new Viewbox
             {
@@ -62,14 +63,24 @@ public sealed class PaperTemplatePicker : UserControl
         });
         content.Children.Add(new TextBlock
         {
-            Text = description, FontSize = 11, Foreground = Brush("#66748A"),
+            Text = description, FontSize = 11, Foreground = Brush("#65736D"),
             TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center,
             Margin = new Thickness(0, 4, 0, 0), MinHeight = 30
         });
 
+        var choiceContent = new Grid();
+        choiceContent.Children.Add(content);
+        var selectedMark = new TextBlock
+        {
+            Text = "✓", FontSize = 15, FontWeight = FontWeights.SemiBold, Foreground = Brush("#236451"),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+            Visibility = Visibility.Hidden, IsHitTestVisible = false
+        };
+        choiceContent.Children.Add(selectedMark);
+        _selectionMarks[template] = selectedMark;
         var choice = new RadioButton
         {
-            GroupName = groupName, Content = content, MinHeight = 138,
+            GroupName = groupName, Content = choiceContent, MinHeight = 138,
             Margin = new Thickness(3), Padding = new Thickness(6, 7, 6, 7),
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Center,
@@ -86,9 +97,9 @@ public sealed class PaperTemplatePicker : UserControl
     private static Style ChoiceStyle()
     {
         var style = new Style(typeof(RadioButton));
-        style.Setters.Add(new Setter(ForegroundProperty, Brush("#25334A")));
-        style.Setters.Add(new Setter(BackgroundProperty, Brush("#F8FAFD")));
-        style.Setters.Add(new Setter(BorderBrushProperty, Brush("#E0E6EF")));
+        style.Setters.Add(new Setter(ForegroundProperty, Brush("#24332F")));
+        style.Setters.Add(new Setter(BackgroundProperty, Brush("#FAFBF8")));
+        style.Setters.Add(new Setter(BorderBrushProperty, Brush("#DDE3DC")));
         style.Setters.Add(new Setter(BorderThicknessProperty, new Thickness(2)));
 
         var chrome = new FrameworkElementFactory(typeof(Border));
@@ -105,15 +116,15 @@ public sealed class PaperTemplatePicker : UserControl
         style.Setters.Add(new Setter(TemplateProperty, new ControlTemplate(typeof(RadioButton)) { VisualTree = chrome }));
 
         var hover = new Trigger { Property = IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(BackgroundProperty, Brush("#F0F5FF")));
+        hover.Setters.Add(new Setter(BackgroundProperty, Brush("#F0F3EE")));
         style.Triggers.Add(hover);
         var selected = new Trigger { Property = ToggleButton.IsCheckedProperty, Value = true };
-        selected.Setters.Add(new Setter(BorderBrushProperty, Brush("#326AE8")));
-        selected.Setters.Add(new Setter(BackgroundProperty, Brush("#EDF3FF")));
-        selected.Setters.Add(new Setter(ForegroundProperty, Brush("#245CCF")));
+        selected.Setters.Add(new Setter(BorderBrushProperty, Brush("#236451")));
+        selected.Setters.Add(new Setter(BackgroundProperty, Brush("#E7F0EA")));
+        selected.Setters.Add(new Setter(ForegroundProperty, Brush("#236451")));
         style.Triggers.Add(selected);
         var focused = new Trigger { Property = IsKeyboardFocusedProperty, Value = true };
-        focused.Setters.Add(new Setter(BorderBrushProperty, Brush("#1744A6")));
+        focused.Setters.Add(new Setter(BorderBrushProperty, Brush("#153F34")));
         style.Triggers.Add(focused);
         var disabled = new Trigger { Property = IsEnabledProperty, Value = false };
         disabled.Setters.Add(new Setter(OpacityProperty, .45));
@@ -138,6 +149,9 @@ public sealed class PaperTemplatePicker : UserControl
     private void UpdateSelection()
     {
         foreach (var (template, choice) in _choices)
+        {
             choice.IsChecked = template == SelectedTemplate;
+            _selectionMarks[template].Visibility = choice.IsChecked == true ? Visibility.Visible : Visibility.Hidden;
+        }
     }
 }

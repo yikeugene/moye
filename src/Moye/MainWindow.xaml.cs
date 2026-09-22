@@ -73,12 +73,25 @@ public partial class MainWindow : Window
     private async Task RunAsync(string message, Func<Task> action)
     {
         if (ViewModel.IsBusy) return;
+        var previousFocus = Keyboard.FocusedElement as UIElement;
         CloseSettingsPopups();
         ViewModel.Operation = message; ViewModel.IsBusy = true;
         try { await action(); }
         catch (OperationCanceledException) { ViewModel.Status = "Operation canceled"; }
         catch (Exception ex) { MessageBox.Show(this, _errors.Report(ex), "Unable to complete the operation", MessageBoxButton.OK, MessageBoxImage.Warning); }
-        finally { ViewModel.IsBusy = false; }
+        finally
+        {
+            ViewModel.IsBusy = false;
+            // Busy work disables the editor as well as pointer input. Restore
+            // typing after Save, or focus the destination when navigation
+            // removed the old control. Never steal focus from another app.
+            if (IsActive)
+            {
+                if (previousFocus is { IsVisible: true, IsEnabled: true, Focusable: true }) previousFocus.Focus();
+                else if (ViewModel.IsEditorVisible) PageList.Focus();
+                else HomeSearch.Focus();
+            }
+        }
     }
 
     private void CommitEditors() { foreach (var editor in _editors.Values.ToArray()) editor.CommitPendingEdits(); }
@@ -150,6 +163,11 @@ public partial class MainWindow : Window
         });
         if (ViewModel.IsLibraryVisible) HomeSearch.Focus();
     }
+    private void DeleteNotebookFromCardClick(object sender, RoutedEventArgs e)
+    {
+        // A library menu must never fall back to the notebook retained in the editor.
+        if (sender is FrameworkElement { DataContext: NotebookSummary }) DeleteNotebookClick(sender, e);
+    }
 
     private async void NotebookSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -160,6 +178,16 @@ public partial class MainWindow : Window
     private async void OpenNotebookClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: NotebookSummary summary }) await OpenNotebookAsync(summary.Id);
+    }
+    private async void OpenNotebookMenuClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: NotebookSummary summary }) await OpenNotebookAsync(summary.Id);
+    }
+    private void ClearSearchClick(object sender, RoutedEventArgs e)
+    {
+        ViewModel.Search = "";
+        var searchBox = ViewModel.IsLibraryVisible ? HomeSearch : LibrarySearch;
+        searchBox.Focus();
     }
     private async Task OpenNotebookAsync(string id)
     {
@@ -403,8 +431,10 @@ public partial class MainWindow : Window
             if (button.Tag is string tag && Enum.TryParse<InkTool>(tag, out var tool))
             {
                 bool selected = tool == _tool || tool == InkTool.PointEraser && _tool == InkTool.StrokeEraser;
-                button.Background = selected ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent;
+                button.Background = selected ? (Brush)FindResource("AccentSoft") : Brushes.Transparent;
                 button.Foreground = selected ? (Brush)FindResource("Accent") : (Brush)FindResource("Ink");
+                button.BorderBrush = selected ? (Brush)FindResource("Accent") : Brushes.Transparent;
+                button.BorderThickness = new Thickness(1);
             }
         }
         // A Popup has its own visual tree; update its swatches explicitly.
@@ -419,14 +449,15 @@ public partial class MainWindow : Window
         foreach (var option in new[] { PointEraseOption, StrokeEraseOption })
         {
             bool selected = Enum.Parse<InkTool>((string)option.Tag) == _eraserTool;
-            option.Background = selected ? new SolidColorBrush(Color.FromRgb(237, 242, 254)) : Brushes.Transparent;
+            option.Background = selected ? (Brush)FindResource("AccentSoft") : Brushes.Transparent;
             option.Foreground = selected ? (Brush)FindResource("Accent") : (Brush)FindResource("Ink");
-            option.BorderBrush = selected ? (Brush)FindResource("Accent") : new SolidColorBrush(Color.FromRgb(223, 228, 236));
+            option.BorderBrush = selected ? (Brush)FindResource("Accent") : (Brush)FindResource("Border");
             option.BorderThickness = new Thickness(1);
         }
-        EraserModeLabel.Text = _eraserTool == InkTool.PointEraser ? "Pixel" : "Stroke";
-        EraserButton.ToolTip = $"{EraserModeLabel.Text} Eraser (E); click to choose an eraser mode";
-        System.Windows.Automation.AutomationProperties.SetHelpText(EraserButton, $"Current mode: {EraserModeLabel.Text} Eraser. Click to choose Pixel Eraser or Stroke Eraser.");
+        var eraserMode = _eraserTool == InkTool.PointEraser ? "Pixel" : "Stroke";
+        EraserModeLabel.Text = "Eraser";
+        EraserButton.ToolTip = $"{eraserMode} Eraser (E); click to choose an eraser mode";
+        System.Windows.Automation.AutomationProperties.SetHelpText(EraserButton, $"Current mode: {eraserMode} Eraser. Click to choose Pixel Eraser or Stroke Eraser.");
         foreach (var editor in _editors.Values)
         {
             ConfigureEditor(editor);
@@ -510,11 +541,38 @@ public partial class MainWindow : Window
         else ViewModel.SetTemplate(template);
     }
 
-    private async void ImportPdfClick(object sender, RoutedEventArgs e)
+    private CancellationTokenSource? _documentImportCancellation;
+    private async void ImportDocumentClick(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Filter = "PDF documents|*.pdf", Title = "Import PDF into This Notebook" };
+        var dialog = new OpenFileDialog { Filter = DocumentImportService.FileFilter, Title = "Import Document into This Notebook" };
         if (dialog.ShowDialog(this) != true) return;
-        CommitEditors(); await RunAsync("Importing PDF…", async () => { var pages = await ViewModel.Pdf.ImportAsync(dialog.FileName); ViewModel.AppendPages(pages); ScrollToSelected(); await ViewModel.Autosave.FlushAsync(); });
+        CommitEditors();
+        var isPdf = Path.GetExtension(dialog.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+        using var cancellation = new CancellationTokenSource();
+        _documentImportCancellation = cancellation;
+        CancelDocumentImportButton.Visibility = Visibility.Visible;
+        CancelDocumentImportButton.IsEnabled = true;
+        try
+        {
+            await RunAsync(isPdf ? "Importing PDF…" : "Converting document into note pages…", async () =>
+            {
+                var pages = await ViewModel.Documents.ImportAsync(dialog.FileName, cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                // Once pages are accepted, finish the save instead of reporting
+                // a canceled operation that actually changed the notebook.
+                _documentImportCancellation = null;
+                CancelDocumentImportButton.Visibility = Visibility.Collapsed;
+                ViewModel.AppendPages(pages); ScrollToSelected(); await ViewModel.Autosave.FlushAsync();
+            });
+        }
+        finally { _documentImportCancellation = null; CancelDocumentImportButton.Visibility = Visibility.Collapsed; }
+    }
+    private void CancelDocumentImportClick(object sender, RoutedEventArgs e)
+    {
+        if (_documentImportCancellation is null) return;
+        CancelDocumentImportButton.IsEnabled = false;
+        ViewModel.Operation = "Canceling document import…";
+        _documentImportCancellation.Cancel();
     }
     private async void ExportPdfClick(object sender, RoutedEventArgs e)
     {
@@ -586,7 +644,7 @@ public partial class MainWindow : Window
     private async void RetrySaveClick(object sender, RoutedEventArgs e) => await RunAsync("Retrying save…", async () => { await ViewModel.Autosave.RetryAsync(); await SavePreferencesAsync(true); });
     private void MoreClick(object sender, RoutedEventArgs e) { var button = (Button)sender; button.ContextMenu.PlacementTarget = button; button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true; }
     private void HelpClick(object sender, RoutedEventArgs e) => MessageBox.Show(this,
-        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nAll Notes saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics; Page Options moves pages between sections.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Presets for your everyday pens; press 1–9 to switch.\nPen Settings offers color swatches and a Thickness slider with preview.\nMore Colors opens the visual palette. Presets also controls\nopacity, pressure and smoothing. Draw and Hold straightens lines.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nShare exports PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
+        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nMy notebooks saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics; Page Options moves pages between sections.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Manage pens for your everyday pens; press 1–9 to switch.\nPen Settings offers color swatches and a Thickness slider with preview.\nMore Colors opens the visual palette. Manage pens controls\nopacity, pressure and smoothing. Draw and Hold straightens lines.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nExport creates a PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
 
     private void SidebarTabClick(object sender, RoutedEventArgs e) => ShowSidebarTab((string)((Button)sender).Tag == "Notebooks");
     private async void ShowNotebooksClick(object sender, RoutedEventArgs e)
@@ -608,8 +666,8 @@ public partial class MainWindow : Window
         NotebooksPanel.Visibility = notebooks ? Visibility.Visible : Visibility.Collapsed;
         PagesTab.Background = notebooks ? Brushes.Transparent : Brushes.White;
         NotebooksTab.Background = notebooks ? Brushes.White : Brushes.Transparent;
-        PagesTab.Foreground = notebooks ? Brushes.SlateGray : (Brush)FindResource("Accent");
-        NotebooksTab.Foreground = notebooks ? (Brush)FindResource("Accent") : Brushes.SlateGray;
+        PagesTab.Foreground = notebooks ? (Brush)FindResource("MutedInk") : (Brush)FindResource("Accent");
+        NotebooksTab.Foreground = notebooks ? (Brush)FindResource("Accent") : (Brush)FindResource("MutedInk");
         CloseSettingsPopups();
     }
     private void ToggleSidebarClick(object sender, RoutedEventArgs e) => ToggleSidebar();
@@ -805,11 +863,22 @@ public partial class MainWindow : Window
 
     private async void WindowKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && _documentImportCancellation is not null)
+        { CancelDocumentImportClick(sender, e); e.Handled = true; return; }
         if (!_ready || ViewModel.IsBusy) return;
         ClearTouches();
         // Library search keeps its text shortcuts; editor commands cannot act
         // on the notebook retained in memory while the home screen is visible.
-        if (ViewModel.IsLibraryVisible) return;
+        if (ViewModel.IsLibraryVisible)
+        {
+            if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+            { HomeSearch.Focus(); HomeSearch.SelectAll(); e.Handled = true; }
+            else if (e.Key == Key.Escape && HomeSearch.IsKeyboardFocusWithin && ViewModel.HasSearch)
+            { ClearSearchClick(sender, e); e.Handled = true; }
+            return;
+        }
+        if (e.Key == Key.Escape && LibrarySearch.IsKeyboardFocusWithin && ViewModel.HasSearch)
+        { ClearSearchClick(sender, e); e.Handled = true; return; }
         if (e.Key == Key.Escape && (PenSettingsPopup.IsOpen || PaperSettingsPopup.IsOpen || EraserSettingsPopup.IsOpen)) { CloseSettingsPopups(); e.Handled = true; return; }
         if (e.Key == Key.F9) { ToggleSidebar(); e.Handled = true; return; }
         if (e.Key == Key.F11) { ToggleFocus(); e.Handled = true; return; }
