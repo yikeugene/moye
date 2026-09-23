@@ -13,7 +13,7 @@
       <Setter Property="Width" Value="50"/><Setter Property="Height" Value="48"/>
       <Setter Property="Margin" Value="0,2"/><Setter Property="Padding" Value="6"/>
     </Style>
-    <Style x:Key="SidebarTab" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Width" Value="92"/><Setter Property="Margin" Value="0"/><Setter Property="Foreground" Value="#65736D"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+    <Style x:Key="SidebarTab" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Width" Value="92"/><Setter Property="Padding" Value="8,6"/><Setter Property="FontSize" Value="12"/><Setter Property="Margin" Value="0"/><Setter Property="Foreground" Value="#65736D"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
   </Window.Resources>
   <Grid>
   <Grid x:Name="EditorShell" Background="#ECEEE8" Visibility="{Binding IsEditorVisible, Converter={StaticResource BoolVisibility}}" IsEnabled="{Binding CanInteract}">
@@ -29,9 +29,9 @@
           <StackPanel><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" MaxWidth="450" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="{Binding SelectedSectionTitle}" TextTrimming="CharacterEllipsis" MaxWidth="450" ToolTip="{Binding SelectedSectionTitle}" Foreground="#65736D" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/></StackPanel>
         </Button>
         <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Button Click="MoreClick" ToolTip="Add a page, import a document or insert an image" AutomationProperties.Name="Insert"><Button.Content><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="14" VerticalAlignment="Center"/><TextBlock Text="Insert" Margin="8,0,0,0"/></StackPanel></Button.Content><Button.ContextMenu><ContextMenu><MenuItem Header="Add Page" Click="AddPageClick" /><Separator/><MenuItem Header="Import Document…" Click="ImportDocumentClick" ToolTip="PDF, Word and PowerPoint · Office files need a local converter" /><MenuItem Header="Insert Image…" Click="ImageClick" /></ContextMenu></Button.ContextMenu></Button>
-          <Button Click="ExportPdfClick" ToolTip="Export this notebook as a PDF" AutomationProperties.Name="Export PDF" Background="{StaticResource AccentSoft}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72D;" FontFamily="Segoe Fluent Icons" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Export" Margin="8,0,0,0"/></StackPanel></Button>
-          <Button Content="&#xE712;" Click="MoreClick" ToolTip="More" AutomationProperties.Name="More" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Rename and Category…" Click="RenameClick" /><Separator/><MenuItem Header="Back Up This Notebook…" Click="BackupNoteClick" /><MenuItem Header="Back Up All Notebooks…" Click="BackupAllClick" /><MenuItem Header="Restore .moye Backup…" Click="RestoreClick" /><Separator/><MenuItem Header="Delete Notebook…" Click="DeleteNotebookClick" /><Separator/><MenuItem Header="Retry Save" Click="RetrySaveClick" /><MenuItem Header="User Guide" Click="HelpClick" /></ContextMenu></Button.ContextMenu></Button>
+          <Button Style="{StaticResource SecondaryButton}" Click="MoreClick" ToolTip="Add a page, import a document or insert an image" AutomationProperties.Name="Insert"><Button.Content><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="14" VerticalAlignment="Center"/><TextBlock Text="Insert" Margin="8,0,0,0"/></StackPanel></Button.Content><Button.ContextMenu><ContextMenu><MenuItem Header="Add Page" Click="AddPageClick" /><Separator/><MenuItem Header="Import Document…" Click="ImportDocumentClick" ToolTip="PDF, Word and PowerPoint · Office files need a local converter" /><MenuItem Header="Insert Image…" Click="ImageClick" /></ContextMenu></Button.ContextMenu></Button>
+          <Button Style="{StaticResource TonalButton}" Click="ExportPdfClick" ToolTip="Export only the selected section as a PDF" AutomationProperties.Name="Export Section PDF" Background="{StaticResource AccentSoft}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72D;" FontFamily="Segoe Fluent Icons" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Export" Margin="8,0,0,0"/></StackPanel></Button>
+          <Button Style="{StaticResource IconButton}" Content="&#xE712;" Click="MoreClick" ToolTip="More" AutomationProperties.Name="More" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Rename and Category…" Click="RenameClick" /><Separator/><MenuItem Header="Back Up This Notebook…" Click="BackupNoteClick" /><MenuItem Header="Back Up All Notebooks…" Click="BackupAllClick" /><MenuItem Header="Restore .moye Backup…" Click="RestoreClick" /><Separator/><MenuItem Header="Delete Notebook…" Click="DeleteNotebookClick" /><Separator/><MenuItem Header="Retry Save" Click="RetrySaveClick" /><MenuItem Header="User Guide" Click="HelpClick" /></ContextMenu></Button.ContextMenu></Button>
         </StackPanel>
       </Grid>
     </Border>
@@ -40,7 +40,7 @@
       <Border x:Name="Sidebar" Background="#FAFBF8" BorderBrush="#DDE3DC" BorderThickness="0,0,1,0" IsEnabled="{Binding CanInteract}">
         <Grid>
           <Grid.RowDefinitions><RowDefinition Height="72"/><RowDefinition Height="*"/><RowDefinition Height="48"/></Grid.RowDefinitions>
-          <Border Margin="16,14" Background="#ECEFE9" CornerRadius="9">
+          <Border Margin="14,9" Padding="4" Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="12">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
               <Button Content="Contents" Click="SidebarTabClick" x:Name="PagesTab" Tag="Pages" Style="{StaticResource SidebarTab}" Background="White" Foreground="{StaticResource Accent}"/>
               <Button Content="Notebooks" Click="SidebarTabClick" x:Name="NotebooksTab" Tag="Notebooks" Style="{StaticResource SidebarTab}"/>
@@ -50,14 +50,14 @@
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="60"/></Grid.RowDefinitions>
             <StackPanel Margin="12,0,12,8">
               <DockPanel>
-                <Button x:Name="AddSectionButton" DockPanel.Dock="Right" Content="＋" Click="AddSectionClick" FontSize="20" ToolTip="Add a section for a topic" AutomationProperties.Name="Add Section"/>
-                <Button x:Name="SectionOptionsButton" DockPanel.Dock="Right" Content="&#xE712;" Click="MoreClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Section Options" AutomationProperties.Name="Section Options"><Button.ContextMenu><ContextMenu><MenuItem Header="Rename Section…" Click="RenameSectionClick"/><MenuItem Header="Move Section Up" Click="MoveSectionUpClick"/><MenuItem Header="Move Section Down" Click="MoveSectionDownClick"/><Separator/><MenuItem Header="Delete Section…" Click="DeleteSectionClick"/></ContextMenu></Button.ContextMenu></Button>
+                <Button Style="{StaticResource IconButton}" x:Name="AddSectionButton" DockPanel.Dock="Right" Content="&#xE710;" Click="AddSectionClick" ToolTip="Add a section for a topic" AutomationProperties.Name="Add Section"/>
+                <Button Style="{StaticResource IconButton}" x:Name="SectionOptionsButton" DockPanel.Dock="Right" Content="&#xE712;" Click="MoreClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Section Options" AutomationProperties.Name="Section Options"><Button.ContextMenu><ContextMenu><MenuItem Header="Rename Section…" Click="RenameSectionClick"/><MenuItem Header="Move Section Up" Click="MoveSectionUpClick"/><MenuItem Header="Move Section Down" Click="MoveSectionDownClick"/><Separator/><MenuItem Header="Delete Section…" Click="DeleteSectionClick"/></ContextMenu></Button.ContextMenu></Button>
                 <TextBlock Text="SECTIONS" FontSize="12" FontWeight="SemiBold" Foreground="#65736D" Margin="8,0,0,0" VerticalAlignment="Center"/>
               </DockPanel>
               <ListBox x:Name="SectionList" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection, Mode=OneWay}" SelectionChanged="SectionSelectionChanged" MaxHeight="156" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Notebook Sections">
                 <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
-                  <Setter Property="MinHeight" Value="48"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="10,6"/><Setter Property="Margin" Value="0,2"/>
-                  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="SectionRow" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SectionRow" Property="Background" Value="#EEF2EC"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="SectionRow" Property="Background" Value="#E7F0EA"/><Setter Property="Foreground" Value="{StaticResource Accent}"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SectionRow" Property="BorderBrush" Value="{StaticResource Accent}"/><Setter TargetName="SectionRow" Property="BorderThickness" Value="1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+                  <Setter Property="MinHeight" Value="48"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="9,5"/><Setter Property="Margin" Value="0,2"/>
+                  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="SectionRow" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="9" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SectionRow" Property="Background" Value="#EEF2EC"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="SectionRow" Property="Background" Value="#E7F0EA"/><Setter Property="Foreground" Value="{StaticResource Accent}"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SectionRow" Property="BorderBrush" Value="{StaticResource Accent}"/><Setter TargetName="SectionRow" Property="BorderThickness" Value="1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
                 </Style></ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="25"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE8F1;" FontFamily="Segoe Fluent Icons" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="{Binding PageCountText}" FontSize="12" Foreground="#65736D" Margin="0,2,0,0"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
               </ListBox>
@@ -73,7 +73,7 @@
                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="ThumbnailRightButtonDown"/>
                 <EventSetter Event="ContextMenuOpening" Handler="PageContextMenuOpening"/>
                 <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
-                  <Border x:Name="ThumbSelection" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6" Padding="8,8,8,6" Background="Transparent"><ContentPresenter/></Border>
+                  <Border x:Name="ThumbSelection" BorderBrush="Transparent" BorderThickness="2" CornerRadius="10" Padding="8,8,8,6" Background="Transparent"><ContentPresenter/></Border>
                   <ControlTemplate.Triggers>
                     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbSelection" Property="Background" Value="#EEF2EC"/></Trigger>
                     <Trigger Property="IsSelected" Value="True"><Setter TargetName="ThumbSelection" Property="BorderBrush" Value="{StaticResource Accent}"/><Setter TargetName="ThumbSelection" Property="Background" Value="#E7F0EA"/></Trigger>
@@ -83,10 +83,10 @@
               </Style></ListBox.ItemContainerStyle>
               <ListBox.ItemTemplate><DataTemplate><StackPanel Loaded="ThumbnailLoaded">
                 <Border Background="White" BorderBrush="#DDE3DC" BorderThickness="1" Width="128" Height="174"><Image Source="{Binding Thumbnail}" Stretch="Uniform"/></Border>
-                <TextBlock Text="{Binding Caption}" HorizontalAlignment="Center" Foreground="#52655B" FontSize="11" Margin="0,8,0,0"/>
+                <TextBlock Text="{Binding Caption}" HorizontalAlignment="Center" Foreground="#52655B" FontSize="12" Margin="0,8,0,0"/>
               </StackPanel></DataTemplate></ListBox.ItemTemplate>
             </ListBox>
-            <Button Content="＋  Add Page" Click="AddPageClick" Grid.Row="3" Margin="22,6,22,10" Background="White" BorderThickness="1" BorderBrush="#DDE3DC" Foreground="{StaticResource Accent}"/>
+            <Button AutomationProperties.Name="Add Page" Click="AddPageClick" Grid.Row="3" Margin="22,6,22,10" Background="White" BorderThickness="1" BorderBrush="#DDE3DC" Foreground="{StaticResource Accent}" Style="{StaticResource SecondaryButton}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="13" VerticalAlignment="Center"/><TextBlock Text="Add Page" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
           </Grid>
           <Grid x:Name="NotebooksPanel" Grid.Row="1" Visibility="Collapsed" Margin="12,0">
             <Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="*"/><RowDefinition Height="60"/></Grid.RowDefinitions>
@@ -94,7 +94,7 @@
               <TextBox x:Name="LibrarySearch" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" ToolTip="Search by title or category" AutomationProperties.Name="Search notebooks" Padding="32,8,46,8" Background="White"/>
               <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" Foreground="#65736D" Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
               <TextBlock Text="Find notebook" Foreground="#65736D" Margin="34,0,8,0" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Search}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
-              <Button x:Name="ClearSidebarSearchButton" Click="ClearSearchClick" Content="&#xE711;" FontFamily="Segoe Fluent Icons" FontSize="12" Width="44" Margin="0,0,1,0" HorizontalAlignment="Right" ToolTip="Clear search" AutomationProperties.Name="Clear search" Visibility="{Binding HasSearch, Converter={StaticResource BoolVisibility}}"/>
+              <Button Style="{StaticResource IconButton}" x:Name="ClearSidebarSearchButton" Click="ClearSearchClick" Content="&#xE711;" FontFamily="Segoe Fluent Icons" FontSize="12" Width="44" Margin="0,0,1,0" HorizontalAlignment="Right" ToolTip="Clear search" AutomationProperties.Name="Clear search" Visibility="{Binding HasSearch, Converter={StaticResource BoolVisibility}}"/>
             </Grid>
             <ListBox Grid.Row="1" ItemsSource="{Binding Notebooks}" x:Name="NotebookList" SelectionChanged="NotebookSelectionChanged" AutomationProperties.Name="Notebooks">
               <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
@@ -108,7 +108,7 @@
               </Grid></DataTemplate></ListBox.ItemTemplate>
             </ListBox>
             <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Notebooks.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Text="No matching notebooks" Foreground="#65736D" FontSize="12"/><Button x:Name="SidebarClearSearchButton" Content="Clear search" Click="ClearSearchClick" Foreground="{StaticResource Accent}" Margin="0,12,0,0" Visibility="{Binding HasSearch, Converter={StaticResource BoolVisibility}}"/></StackPanel>
-            <Button Content="＋  New Notebook" Click="NewNoteClick" Grid.Row="2" Margin="10,6,10,10" Background="White" BorderThickness="1" BorderBrush="#DDE3DC" Foreground="{StaticResource Accent}"/>
+            <Button AutomationProperties.Name="New Notebook" Click="NewNoteClick" Grid.Row="2" Margin="10,6,10,10" Background="White" BorderThickness="1" BorderBrush="#DDE3DC" Foreground="{StaticResource Accent}" Style="{StaticResource SecondaryButton}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="13" VerticalAlignment="Center"/><TextBlock Text="New Notebook" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
           </Grid>
           <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons" Foreground="#65736D" VerticalAlignment="Center"/><TextBlock Text="Your offline workspace" Foreground="#65736D" FontSize="12" Margin="8,0,0,0"/></StackPanel>
         </Grid>
@@ -119,7 +119,7 @@
           <StackPanel>
           <Grid Margin="12,0" Height="72">
             <Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/><ColumnDefinition Width="108"/></Grid.ColumnDefinitions>
-            <Button Content="&#xE8A0;" Click="ToggleSidebarClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Show or hide the sidebar (F9)" AutomationProperties.Name="Toggle Sidebar"/>
+            <Button Style="{StaticResource IconButton}" Content="&#xE8A0;" Click="ToggleSidebarClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Show or hide the sidebar (F9)" AutomationProperties.Name="Toggle Sidebar"/>
             <StackPanel x:Name="WritingTools" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <Button x:Name="PenButton" Tag="Pen" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Pressure-sensitive pen (B)" AutomationProperties.Name="Pen"><StackPanel><Path Data="M16,2 L22,8 10,20 3,22 5,15 Z M5,15 L10,20 M14,4 L20,10" Style="{StaticResource ToolIcon}"/><TextBlock Text="Pen" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button Width="80" Tag="Highlighter" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Highlighter (H)" AutomationProperties.Name="Highlighter"><StackPanel><Path Data="M12,3 L21,8 14,19 5,14 Z M7,15 L5,19 10,21 12,18 M3,23 L13,23 M10,6 L18,11" Style="{StaticResource ToolIcon}"/><TextBlock Text="Highlighter" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
@@ -128,17 +128,17 @@
 <Button x:Name="TypeButton" Tag="Text" Style="{StaticResource ToolButton}" Click="TypeClick" ToolTip="Start or continue typing (T)" AutomationProperties.Name="Type"><StackPanel><Path Data="M3,7 L3,3 23,3 23,7 M13,3 L13,23 M8,23 L18,23" Style="{StaticResource ToolIcon}"/><TextBlock Text="Type" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
 <Button  Tag="Select" Style="{StaticResource ToolButton}" Click="ToolClick" ToolTip="Move or resize text and images (V)" AutomationProperties.Name="Select"><StackPanel><Path Data="M4,2 L4,21 9,16 13,24 17,22 13,14 21,13 Z" Style="{StaticResource ToolIcon}"/><TextBlock Text="Select" Style="{StaticResource ToolLabel}"/></StackPanel></Button>
               <Border Width="1" Height="28" Background="#DDE3DC" Margin="7,0"/>
-              <Button x:Name="PenSettingsButton" Click="PenSettingsClick" ToolTip="Pen Settings: color and thickness" AutomationProperties.Name="Pen Settings" Padding="10,6" Background="#F0F3ED">
+              <Button Style="{StaticResource SecondaryButton}" x:Name="PenSettingsButton" Click="PenSettingsClick" ToolTip="Pen Settings: color and thickness" AutomationProperties.Name="Pen Settings" Padding="10,6" Background="#F0F3ED">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Ellipse x:Name="CurrentColor" Width="18" Height="18" Fill="#25334A"/><TextBlock x:Name="CurrentWidth" Text="2.5" Margin="10,0,8,0" FontSize="12" VerticalAlignment="Center"/><TextBlock Text="mm" FontSize="11" Foreground="#65736D" VerticalAlignment="Center"/><TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons" FontSize="10" Foreground="#65736D" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel>
               </Button>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-              <Button Content="&#xE7A7;" Click="UndoClick" FontFamily="Segoe Fluent Icons" FontSize="18" IsEnabled="{Binding CanUndo}" ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Undo"/>
-              <Button Content="&#xE7A6;" Click="RedoClick" FontFamily="Segoe Fluent Icons" FontSize="18" IsEnabled="{Binding CanRedo}" ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Redo"/>
+              <Button Style="{StaticResource IconButton}" Content="&#xE7A7;" Click="UndoClick" FontFamily="Segoe Fluent Icons" FontSize="18" IsEnabled="{Binding CanUndo}" ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Undo"/>
+              <Button Style="{StaticResource IconButton}" Content="&#xE7A6;" Click="RedoClick" FontFamily="Segoe Fluent Icons" FontSize="18" IsEnabled="{Binding CanRedo}" ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Redo"/>
             </StackPanel>
           </Grid>
           <DockPanel x:Name="FavouriteToolbar" Margin="16,0,16,8" Height="44">
-            <Button Content="Manage pens" Click="ManagePresetsClick" DockPanel.Dock="Right" FontSize="12" ToolTip="Save, rename, reorder or hide favourite pens" AutomationProperties.Name="Manage Pen Presets"/>
+            <Button Style="{StaticResource SecondaryButton}" Content="Manage pens" Click="ManagePresetsClick" DockPanel.Dock="Right" FontSize="12" ToolTip="Save, rename, reorder or hide favourite pens" AutomationProperties.Name="Manage Pen Presets"/>
             <Button x:Name="PreferencesRetryButton" Content="! Settings" Click="RetryPreferencesClick" DockPanel.Dock="Right" Visibility="Collapsed" Foreground="#BE563D"/>
             <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" PanningMode="HorizontalOnly">
               <StackPanel x:Name="FavouritePresets" Orientation="Horizontal"/>
@@ -146,21 +146,21 @@
           </DockPanel>
           <StackPanel InputMethod.IsInputMethodEnabled="False" x:Name="TextToolbar" Visibility="Collapsed" Margin="14,0,14,8">
             <WrapPanel>
-              <Button x:Name="AddTextBoxButton" Content="＋ Text box" Click="AddTextBoxClick" Focusable="False" FontSize="12" Padding="8,6" ToolTip="Add another text box" AutomationProperties.Name="Add Text Box"/>
+              <Button x:Name="AddTextBoxButton" Click="AddTextBoxClick" Focusable="False" FontSize="12" Padding="8,6" ToolTip="Add another text box" AutomationProperties.Name="Add Text Box" Style="{StaticResource SecondaryButton}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="13" VerticalAlignment="Center"/><TextBlock Text="Text box" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
               <ComboBox x:Name="TextFontPicker" Width="146" Margin="2,0" IsEditable="True" IsReadOnly="True" DropDownClosed="TextFontChanged" LostKeyboardFocus="TextPickerLostFocus" PreviewGotKeyboardFocus="TextPickerGotFocus" PreviewKeyDown="TextPickerKeyDown" Text="Segoe UI" ToolTip="Font family" AutomationProperties.Name="Text Font">
                 <ComboBoxItem Content="Segoe UI"/><ComboBoxItem Content="Arial"/><ComboBoxItem Content="Calibri"/><ComboBoxItem Content="Microsoft JhengHei"/><ComboBoxItem Content="Consolas"/><ComboBoxItem Content="Times New Roman"/>
               </ComboBox>
               <ComboBox x:Name="TextSizePicker" Width="72" Margin="2,0" IsEditable="True" Text="16.5" DropDownClosed="TextSizeChanged" LostKeyboardFocus="TextPickerLostFocus" PreviewGotKeyboardFocus="TextPickerGotFocus" PreviewKeyDown="TextPickerKeyDown" ToolTip="Font size in points (6–96 pt)" AutomationProperties.Name="Text Size">
                 <ComboBoxItem Content="10"/><ComboBoxItem Content="12"/><ComboBoxItem Content="14"/><ComboBoxItem Content="16.5"/><ComboBoxItem Content="18"/><ComboBoxItem Content="24"/><ComboBoxItem Content="32"/><ComboBoxItem Content="48"/>
               </ComboBox>
-              <Button x:Name="TextBoldButton" Content="B" FontWeight="Bold" Click="TextBoldClick" Focusable="False" Width="44" Padding="4" Margin="2,0" ToolTip="Bold entire text box (Ctrl+B)" AutomationProperties.Name="Bold Text"/>
-              <Button x:Name="TextItalicButton" Content="I" FontStyle="Italic" Click="TextItalicClick" Focusable="False" Width="44" Padding="4" Margin="2,0" ToolTip="Italic entire text box (Ctrl+I)" AutomationProperties.Name="Italic Text"/>
-              <Button x:Name="TextColorButton" Click="TextColorClick" Focusable="False" Width="44" Padding="4" Margin="2,0" ToolTip="Text color" AutomationProperties.Name="Text Color"><TextBlock Text="A" TextDecorations="Underline" FontWeight="SemiBold"/></Button>
+              <Button Style="{StaticResource SecondaryButton}" x:Name="TextBoldButton" Content="B" FontWeight="Bold" Click="TextBoldClick" Focusable="False" Width="44" Padding="4" Margin="2,0" ToolTip="Bold entire text box (Ctrl+B)" AutomationProperties.Name="Bold Text"/>
+              <Button Style="{StaticResource SecondaryButton}" x:Name="TextItalicButton" Content="I" FontStyle="Italic" Click="TextItalicClick" Focusable="False" Width="44" Padding="4" Margin="2,0" ToolTip="Italic entire text box (Ctrl+I)" AutomationProperties.Name="Italic Text"/>
+              <Button Style="{StaticResource SecondaryButton}" x:Name="TextColorButton" Click="TextColorClick" Focusable="False" Width="44" Padding="4" Margin="2,0" ToolTip="Text color" AutomationProperties.Name="Text Color"><TextBlock Text="A" TextDecorations="Underline" FontWeight="SemiBold"/></Button>
               <ComboBox x:Name="TextAlignmentPicker" Width="92" Margin="2,0" DropDownClosed="TextAlignmentChanged" LostKeyboardFocus="TextPickerLostFocus" PreviewGotKeyboardFocus="TextPickerGotFocus" PreviewKeyDown="TextPickerKeyDown" SelectedIndex="0" ToolTip="Text alignment" AutomationProperties.Name="Text Alignment"><ComboBoxItem Content="Left"/><ComboBoxItem Content="Center"/><ComboBoxItem Content="Right"/></ComboBox>
               <Button x:Name="TextBulletsButton" Content="• List" Click="TextBulletsClick" Focusable="False" FontSize="12" Padding="6" Margin="2,0" ToolTip="Toggle bullets on selected lines" AutomationProperties.Name="Bullet List"/>
               <Button x:Name="TextNumbersButton" Content="1. List" Click="TextNumberingClick" Focusable="False" FontSize="12" Padding="6" Margin="2,0" ToolTip="Toggle numbering on selected lines" AutomationProperties.Name="Numbered List"/>
             </WrapPanel>
-            <TextBlock x:Name="TypingHint" Text="Type here, or click the paper to add another box. Ctrl+Enter returns to Pen." TextWrapping="Wrap" FontSize="11" Foreground="SlateGray" Margin="6,7,4,0"/>
+            <TextBlock x:Name="TypingHint" Text="Type here, or click the paper to add another box. Ctrl+Enter returns to Pen." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource MutedInk}" Margin="6,7,4,0"/>
           </StackPanel>
           </StackPanel>
         </Border>
@@ -177,7 +177,7 @@
             <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Pages.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
             <TextBlock Text="{Binding SelectedSectionTitle}" TextTrimming="CharacterEllipsis" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center"/>
             <TextBlock Text="Start this topic with a fresh page." Foreground="#65736D" Margin="0,12,0,24" TextWrapping="Wrap" TextAlignment="Center"/>
-            <Button x:Name="EmptySectionAddPageButton" Content="＋  Add Page" Click="AddPageClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center"/>
+            <Button x:Name="EmptySectionAddPageButton" AutomationProperties.Name="Add Page" Click="AddPageClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="13" VerticalAlignment="Center"/><TextBlock Text="Add Page" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
           </StackPanel>
 
         </Grid>
@@ -191,13 +191,13 @@
               <Button Grid.Column="1" Content="Retry Save" Click="RetrySaveClick" Visibility="{Binding HasSaveError, Converter={StaticResource BoolVisibility}}" Padding="8,0" Foreground="#BE563D"/>
             </Grid>
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button Content="−" Click="ZoomOutClick" FontSize="20" ToolTip="Zoom Out" AutomationProperties.Name="Zoom Out"/>
+              <Button Style="{StaticResource IconButton}" Content="&#xE738;" Click="ZoomOutClick" ToolTip="Zoom Out" AutomationProperties.Name="Zoom Out"/>
               <Button Content="{Binding ZoomLabel}" Click="MoreClick" ToolTip="Zoom Options" AutomationProperties.Name="Zoom Options" FontSize="12" Width="62"><Button.ContextMenu><ContextMenu><MenuItem Header="Fit Page" Click="FitPageClick" /><MenuItem Header="Fit Width" Click="FitWidthClick" /><MenuItem Header="Actual Size · 100%" Click="ActualSizeClick" /></ContextMenu></Button.ContextMenu></Button>
-              <Button Content="＋" Click="ZoomInClick" FontSize="18" ToolTip="Zoom In" AutomationProperties.Name="Zoom In"/>
+              <Button Style="{StaticResource IconButton}" Content="&#xE710;" Click="ZoomInClick" ToolTip="Zoom In" AutomationProperties.Name="Zoom In"/>
               <Button Content="Fit Page" Click="FitPageClick" FontSize="12" Foreground="#52655B" ToolTip="Show the whole page"/>
               <Button x:Name="FitWidthButton" Content="Fit Width" Click="FitWidthClick" FontSize="12" Foreground="#52655B" ToolTip="Fit the paper to the available writing area"/>
               <Border Width="1" Height="18" Background="#DDE3DC" Margin="8,0"/>
-              <Button Content="&#xE740;" Click="FocusClick" x:Name="FocusButton" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Focus Mode (F11)" AutomationProperties.Name="Focus Mode"/>
+              <Button Style="{StaticResource IconButton}" Content="&#xE740;" Click="FocusClick" x:Name="FocusButton" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Focus Mode (F11)" AutomationProperties.Name="Focus Mode"/>
             </StackPanel>
           </Grid>
         </Border>
@@ -231,7 +231,7 @@
           <UniformGrid x:Name="ColorPalette" Columns="5" Margin="-3,0"><Button Tag="#FF25334A" Click="ColorClick" ToolTip="Ink Black" AutomationProperties.Name="Ink Black" Padding="8,6"><Ellipse Fill="#25334A" Width="24" Height="24"/></Button><Button Tag="#FF326AE8" Click="ColorClick" ToolTip="Blue" AutomationProperties.Name="Blue" Padding="8,6"><Ellipse Fill="#326AE8" Width="24" Height="24"/></Button><Button Tag="#FFE36072" Click="ColorClick" ToolTip="Coral" AutomationProperties.Name="Coral" Padding="8,6"><Ellipse Fill="#E36072" Width="24" Height="24"/></Button><Button Tag="#FF23A487" Click="ColorClick" ToolTip="Green" AutomationProperties.Name="Green" Padding="8,6"><Ellipse Fill="#23A487" Width="24" Height="24"/></Button><Button Tag="#FFF4CF58" Click="ColorClick" ToolTip="Yellow" AutomationProperties.Name="Yellow" Padding="8,6"><Ellipse Fill="#F4CF58" Width="24" Height="24"/></Button><Button Tag="#FFB63A4B" Click="ColorClick" ToolTip="Red" AutomationProperties.Name="Red" Padding="8,6"><Ellipse Fill="#B63A4B" Width="24" Height="24"/></Button><Button Tag="#FF8056B8" Click="ColorClick" ToolTip="Purple" AutomationProperties.Name="Purple" Padding="8,6"><Ellipse Fill="#8056B8" Width="24" Height="24"/></Button><Button Tag="#FFF39A45" Click="ColorClick" ToolTip="Orange" AutomationProperties.Name="Orange" Padding="8,6"><Ellipse Fill="#F39A45" Width="24" Height="24"/></Button><Button Tag="#FF37A9C5" Click="ColorClick" ToolTip="Cyan" AutomationProperties.Name="Cyan" Padding="8,6"><Ellipse Fill="#37A9C5" Width="24" Height="24"/></Button><Button Tag="#FFFFFFFF" Click="ColorClick" ToolTip="White" AutomationProperties.Name="White" Padding="8,6"><Ellipse Fill="White" Stroke="#B8C2D1" Width="24" Height="24"/></Button></UniformGrid>
           <Button x:Name="MoreInkColorsButton" Content="More Colors…" Click="CustomColorClick" Foreground="{StaticResource Accent}" HorizontalAlignment="Left" Margin="-8,2,0,10"/>
           <controls:StrokeWidthPicker x:Name="WidthPicker" StrokeWidthChanged="WidthChanged" StrokeWidthCommitted="WidthCommitted"/>
-          <Button Content="Save Current as Preset…" Click="SavePresetClick" Margin="0,8,0,0" HorizontalAlignment="Stretch" Background="#F0F3ED"/>
+          <Button Style="{StaticResource TonalButton}" Content="Save Current as Preset…" Click="SavePresetClick" Margin="0,8,0,0" HorizontalAlignment="Stretch" Background="#F0F3ED"/>
           <Border Height="1" Background="#E6EBE3" Margin="0,18,0,8"/>
           <CheckBox x:Name="HoldToStraightenToggle" Content="Draw and Hold" IsChecked="True" Checked="HoldToStraightenChanged" Unchecked="HoldToStraightenChanged" MinHeight="44" VerticalContentAlignment="Center" FontSize="14" AutomationProperties.Name="Draw and Hold"/>
           <TextBlock Text="Pause at the end of a line to straighten it. Keep holding to adjust; lift to finish." TextWrapping="Wrap" FontSize="12" Foreground="#65736D" Margin="0,2,0,0"/>
@@ -263,7 +263,7 @@
           <TextBlock x:Name="PaperPickerHint" Text="Choose a template for this page." TextWrapping="Wrap" Foreground="#65736D" Margin="0,6,0,18"/>
           <controls:PaperTemplatePicker x:Name="TemplatePicker"/>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
-            <Button Content="Cancel" Click="CancelPaperClick"/>
+            <Button Style="{StaticResource SecondaryButton}" Content="Cancel" Click="CancelPaperClick"/>
             <Button x:Name="ApplyPaperButton" Content="Apply Paper" Click="ApplyPaperClick" Style="{StaticResource PrimaryButton}"/>
           </StackPanel>
         </StackPanel>
@@ -281,8 +281,8 @@
           <StackPanel><TextBlock Text="Moye" FontSize="24" FontWeight="SemiBold"/><TextBlock Text="A place for your thoughts" FontSize="12" Foreground="#65736D"/></StackPanel>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Button Content="Restore backup" Click="RestoreClick" Foreground="#52655B" Padding="16,8"/>
-          <Button Content="&#xE712;" Click="MoreClick" ToolTip="Library options" AutomationProperties.Name="Library Options" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Back Up All Notebooks…" Click="BackupAllClick"/><MenuItem Header="User Guide" Click="HelpClick"/></ContextMenu></Button.ContextMenu></Button>
+          <Button Style="{StaticResource SecondaryButton}" Content="Restore backup" Click="RestoreClick" Foreground="#52655B" Padding="16,8"/>
+          <Button Style="{StaticResource IconButton}" Content="&#xE712;" Click="MoreClick" ToolTip="Library options" AutomationProperties.Name="Library Options" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Back Up All Notebooks…" Click="BackupAllClick"/><MenuItem Header="User Guide" Click="HelpClick"/></ContextMenu></Button.ContextMenu></Button>
         </StackPanel>
       </Grid>
     </Border>
@@ -301,7 +301,7 @@
           <TextBox x:Name="HomeSearch" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" Padding="40,8,52,8" AutomationProperties.Name="Search notebooks" ToolTip="Search by title or category (Ctrl+F)"/>
           <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" Foreground="#65736D" Margin="15,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
           <TextBlock Text="Search by title or category" Foreground="#65736D" Margin="42,0,50,0" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Search}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
-          <Button x:Name="ClearHomeSearchButton" Click="ClearSearchClick" Content="&#xE711;" FontFamily="Segoe Fluent Icons" FontSize="12" Width="44" Margin="0,0,2,0" HorizontalAlignment="Right" ToolTip="Clear search" AutomationProperties.Name="Clear search" Visibility="{Binding HasSearch, Converter={StaticResource BoolVisibility}}"/>
+          <Button Style="{StaticResource IconButton}" x:Name="ClearHomeSearchButton" Click="ClearSearchClick" Content="&#xE711;" FontFamily="Segoe Fluent Icons" FontSize="12" Width="44" Margin="0,0,2,0" HorizontalAlignment="Right" ToolTip="Clear search" AutomationProperties.Name="Clear search" Visibility="{Binding HasSearch, Converter={StaticResource BoolVisibility}}"/>
         </Grid>
         <TextBlock Grid.Column="1" Text="{Binding LibraryCountText}" Foreground="#65736D" FontSize="13" VerticalAlignment="Center" Margin="24,0,0,0" AutomationProperties.LiveSetting="Polite"/>
       </Grid>
@@ -313,9 +313,10 @@
         <ItemsControl x:Name="HomeNotebookCards" ItemsSource="{Binding Notebooks}" AlternationCount="4" Margin="0,4,0,24">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate><DataTemplate>
-            <Border x:Name="NotebookCard" Tag="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Width="264" Margin="0,8,20,20" Background="White" BorderBrush="#DDE3DC" BorderThickness="1" CornerRadius="12">
+            <Border x:Name="NotebookCard" Tag="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Width="264" Margin="0,8,20,20" Background="White" BorderThickness="1" CornerRadius="12">
+              <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{StaticResource Stroke}"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="#A4B6A9"/></Trigger><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger></Style.Triggers></Style></Border.Style>
               <Grid><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="52"/></Grid.RowDefinitions>
-                <Button Click="OpenNotebookClick" Margin="0" Padding="14,14,14,8" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}">
+                <Button Style="{StaticResource NotebookOpenButton}" Click="OpenNotebookClick" Margin="0" Padding="14,14,14,8" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}">
                   <StackPanel Width="230">
                     <Border x:Name="NotebookCover" Height="152" CornerRadius="5,10,10,5" Margin="0,0,0,16">
                       <Border.Style><Style TargetType="Border"><Setter Property="Background" Value="#3B6656"/><Style.Triggers>
@@ -338,7 +339,7 @@
                 </Button>
                 <Grid Grid.Row="1" Margin="16,0,8,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock Text="{Binding PageCountText}" FontSize="12" Foreground="#65736D" VerticalAlignment="Center"/>
-                  <Button Grid.Column="1" x:Name="NotebookOptionsButton" Content="&#xE712;" Click="MoreClick" FontFamily="Segoe Fluent Icons" FontSize="18" Width="44" Margin="0" ToolTip="Notebook options" AutomationProperties.Name="{Binding Title, StringFormat='Options for {0}'}">
+                  <Button Style="{StaticResource IconButton}" Grid.Column="1" x:Name="NotebookOptionsButton" Content="&#xE712;" Click="MoreClick" FontFamily="Segoe Fluent Icons" FontSize="18" Width="44" Margin="0" ToolTip="Notebook options" AutomationProperties.Name="{Binding Title, StringFormat='Options for {0}'}">
                     <Button.ContextMenu><ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"><MenuItem Header="Open Notebook" Click="OpenNotebookMenuClick"/><Separator/><MenuItem Header="Delete Notebook…" Click="DeleteNotebookFromCardClick"/></ContextMenu></Button.ContextMenu>
                   </Button>
                 </Grid>
@@ -356,11 +357,11 @@
         <Button x:Name="EmptyLibraryCreateButton" Content="Create your first notebook" Click="NewNoteClick" HorizontalAlignment="Center" Padding="24,10"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}"><Style.Triggers><DataTrigger Binding="{Binding HasSearch}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Button.Style></Button>
       </StackPanel>
     </Grid>
-    <Grid Grid.Row="2" Margin="40,0" MaxWidth="1180"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons" Foreground="#65736D" VerticalAlignment="Center"/><TextBlock Text="On your device. Ready when you are." Foreground="#65736D" FontSize="12" Margin="8,0,0,0"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="#65736D" FontSize="12" VerticalAlignment="Center" Margin="24,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="400"/></Grid>
+    <Grid Grid.Row="2" Margin="40,0" MaxWidth="1180"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons" Foreground="#65736D" VerticalAlignment="Center"/><TextBlock Text="On your device. Ready when you are." Foreground="#65736D" FontSize="12" Margin="8,0,0,0"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding Status}" ToolTip="{Binding Status}" Foreground="#65736D" FontSize="12" VerticalAlignment="Center" Margin="24,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="400"/></Grid>
   </Grid>
   <Border x:Name="BusyOverlay" Background="#EDF5F4F0" Visibility="{Binding IsBusy, Converter={StaticResource BoolVisibility}}">
     <Border Background="White" BorderBrush="#DDE3DC" BorderThickness="1" CornerRadius="16" Padding="36" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Margin="24">
-      <StackPanel><ProgressBar IsIndeterminate="True" Width="240" Height="4" Foreground="{StaticResource Accent}"/><TextBlock Text="{Binding Operation}" Margin="0,22,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" AutomationProperties.LiveSetting="Polite"/><Button x:Name="CancelDocumentImportButton" Content="Cancel Import" Click="CancelDocumentImportClick" Visibility="Collapsed" HorizontalAlignment="Center" MinWidth="140" Margin="0,20,0,0" ToolTip="Cancel document import (Esc)"/></StackPanel>
+      <StackPanel><ProgressBar IsIndeterminate="True" Width="240" Height="4" Foreground="{StaticResource Accent}"/><TextBlock Text="{Binding Operation}" Margin="0,22,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" AutomationProperties.LiveSetting="Polite"/><Button Style="{StaticResource SecondaryButton}" x:Name="CancelDocumentImportButton" Content="Cancel Import" Click="CancelDocumentImportClick" Visibility="Collapsed" HorizontalAlignment="Center" MinWidth="140" Margin="0,20,0,0" ToolTip="Cancel document import (Esc)"/></StackPanel>
     </Border>
   </Border>
   </Grid>

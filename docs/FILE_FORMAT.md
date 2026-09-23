@@ -1,10 +1,10 @@
 # Moye notebook formats
 
-Moye 1.7.0 introduced notebook sections; Moye 1.8.0 through 1.10.0 use the same file formats. Application versions, SQLite schema versions and backup format versions are independent.
+Moye 1.7.0 introduced notebook sections; Moye 1.8.0 through 1.11.0 use the same file formats. Application versions, SQLite schema versions and backup format versions are independent.
 
 ## Compatibility
 
-| File | Moye 1.7.0–1.10.0 writer | Moye 1.7.0–1.10.0 reader | Moye 1.6.2 and earlier |
+| File | Moye 1.7.0–1.11.0 writer | Moye 1.7.0–1.11.0 reader | Moye 1.6.2 and earlier |
 |---|---|---|---|
 | SQLite library | Schema 2 | Migrates schema 0/1; reads 2 | Reject schema 2 |
 | `.moye` backup | Format 2 | Reads 1 and 2 | Reject format 2 |
@@ -32,7 +32,7 @@ JSON uses UTF-8 and camel-case property names. The model in [DocumentModels.cs](
 }
 ```
 
-`sections` defines section order. Each page belongs to exactly one section through `sectionId`. `pages` is a flat ordered list, grouped by section order and preserving page order within each section; whole-notebook PDF export uses this sequence. Empty sections are allowed. Titles need not be unique; IDs are unique within a notebook. Sections do not contain nested sections.
+`sections` defines section order. Each page belongs to exactly one section through `sectionId`. `pages` is a flat ordered list, grouped by section order and preserving page order within each section. Section PDF export filters this sequence by the selected section ID, preserving page order. Empty sections are allowed. Titles need not be unique; IDs are unique within a notebook. Sections do not contain nested sections.
 
 Pages also contain `template`, `texts`, `images`, and an optional `pdf` background reference. Paper templates use stable integer values: Blank 0, Ruled 1, Grid 2, Dot Grid 3, Cornell 4 and Graph 5. Geometry uses fixed 96-DPI page coordinates; display zoom never changes stored coordinates. Text includes font family, size in DIP, bold, italic, alignment and color. Images reference original assets; PDF references retain the original PDF asset and page/crop/rotation metadata. Ink is vector ISF with pressure information, not a flattened bitmap.
 

@@ -57,7 +57,7 @@ public sealed class PresetManagerDialog : Window
         form.Children.Add(_pressure); form.Children.Add(_smoothing); form.Children.Add(_favorite); form.Children.Add(_error);
         var scroll = new ScrollViewer { Content = form, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; Grid.SetColumn(scroll, 1); body.Children.Add(scroll);
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
-        footer.Children.Add(new Button { Content = "Cancel", IsCancel = true });
+        footer.Children.Add(new Button { Content = "Cancel", IsCancel = true, Style = TryFindResource("SecondaryButton") as Style });
         var save = new Button { Content = "Save and Use", IsDefault = true, Style = TryFindResource("PrimaryButton") as Style };
         save.Click += (_, _) => { if (CommitSelection()) DialogResult = true; }; footer.Children.Add(save); Grid.SetRow(footer, 2); root.Children.Add(footer); Content = root;
         _list.SelectionChanged += (_, _) =>

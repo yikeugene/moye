@@ -23,9 +23,14 @@ public sealed class ColorPickerDialog : Window
         var titleBlock = new TextBlock { Text = title, FontSize = 23, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 14) };
         DockPanel.SetDock(titleBlock, Dock.Top); root.Children.Add(titleBlock);
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
-        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 88, MinHeight = 44, Margin = new Thickness(0, 0, 8, 0) };
-        var apply = new Button { Content = "Apply", IsDefault = true, MinWidth = 88, MinHeight = 44, Background = new SolidColorBrush(Color.FromRgb(50, 106, 232)), Foreground = Brushes.White };
-        if (TryFindResource("PrimaryButton") is Style primary) apply.Style = primary;
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 88, MinHeight = 44, Margin = new Thickness(0, 0, 8, 0), Style = TryFindResource("SecondaryButton") as Style };
+        var apply = new Button { Content = "Apply", IsDefault = true, MinWidth = 88, MinHeight = 44, Background = new SolidColorBrush(Color.FromRgb(35, 100, 81)), Foreground = Brushes.White };
+        if (TryFindResource("PrimaryButton") is Style primary)
+        {
+            apply.Style = primary;
+            apply.ClearValue(Control.BackgroundProperty);
+            apply.ClearValue(Control.ForegroundProperty);
+        }
         footer.Children.Add(cancel); footer.Children.Add(apply); DockPanel.SetDock(footer, Dock.Bottom); root.Children.Add(footer);
         Picker = new ColorPickerSurface(initialColor);
         root.Children.Add(new ScrollViewer { Content = Picker, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });

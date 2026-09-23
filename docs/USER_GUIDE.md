@@ -1,14 +1,14 @@
 # Moye user guide
 
-This guide describes the English interface in Moye 1.10.0 for Windows 11 x64.
+This guide describes the English interface in Moye 1.11.0 for Windows 11 x64.
 
 Version 1.6.0 adds the **Type** button and text-formatting workflow described below.
 
-**Before upgrading:** create a `.moye` backup using your current version and keep it separately. Moye 1.10.0 retains the schema 2 libraries and format 2 backups used by 1.7.0. Upgrading from 1.6.2 or earlier migrates the library; those older versions cannot reopen it or new backups. Uninstalling does not reverse this migration.
+**Before upgrading:** create a `.moye` backup using your current version and keep it separately. Moye 1.11.0 retains the schema 2 libraries and format 2 backups used by 1.7.0. Upgrading from 1.6.2 or earlier migrates the library; those older versions cannot reopen it or new backups. Uninstalling does not reverse this migration.
 
 ## Install, update and uninstall
 
-Download `Moye-1.10.0-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
+Download `Moye-1.11.0-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
 
 Open the **Moye** desktop shortcut after installation. When updating, close the app and run the newer installer. Existing notes stay in `%LOCALAPPDATA%\Moye`; the installer does not move or replace them. If you previously used a portable ZIP with the default library, the installed app uses that same library. A custom `--data-dir` library still needs its custom launch argument.
 
@@ -16,7 +16,7 @@ Remove Moye through **Windows Settings → Apps → Installed apps → Moye → 
 
 ## Notebooks, sections and pages
 
-The **1.9.0 interface** uses a warm neutral workspace with forest green controls, clearer notebook covers and visible keyboard focus. The navigation names below describe 1.10.0; version 1.8.0 uses **All Notes**, **Presets…** and **Create a Notebook** for the corresponding actions.
+The **1.9.0 interface** uses a warm neutral workspace with forest green controls, clearer notebook covers and visible keyboard focus. Version 1.11.0 refines buttons, pen badges and focus indicators. The navigation names below describe 1.11.0; version 1.8.0 uses **All Notes**, **Presets…** and **Create a Notebook** for the corresponding actions.
 
 Open `Moye.exe` to see **Your notebooks**. Moye always starts on this home screen and waits for you to choose a notebook. An empty library shows **Create your first notebook**; it does not create a notebook automatically. Notebook cards show the title, category and page count, with the most recently edited notebooks first.
 
@@ -49,7 +49,7 @@ In **Contents**, click **＋** beside **SECTIONS** to name a section. It starts 
 
 Use **Section Options (⋯)** to rename or move the selected section up/down. **Delete Section…** asks for confirmation and removes its pages; notebook Undo can restore them while the notebook stays open. Keep at least one section. Right-click a page and choose **Move Page to Section** to organize existing pages; the editor follows the moved page. An empty source section remains available, with **Add Page** ready to create its next page.
 
-New and older notebooks begin with **General**, which you can rename to your first topic. Section changes are autosaved, and switching sections commits pending handwriting and text. PDF import inserts pages into the current section; exporting the notebook includes every section in sidebar order and each section's pages in their displayed order. A `.moye` backup preserves names, order and editable page contents.
+New and older notebooks begin with **General**, which you can rename to your first topic. Section changes are autosaved, and switching sections commits pending handwriting and text. PDF import inserts pages into the current section; **Export** saves only the selected section's pages in their displayed order. A `.moye` notebook backup preserves every section, its name, order and editable page contents.
 
 ## Pen presets
 
@@ -66,7 +66,9 @@ Click a favorite or press its displayed number, `1`–`9`, to select it. The too
 
 Use **Pen Settings → Save Current as Preset…** to name and save a new tool from the current writing settings. Open **Manage pens** to rename a preset, choose Pen or Highlighter, edit its color and thickness, duplicate it, delete it, or move it with **↑** and **↓**. Clear **Show in favourite toolbar** to hide a preset without deleting it. **Save and Use** applies your changes and activates the selected preset, including hidden presets; **Cancel** leaves your saved presets unchanged. You can keep up to 40 presets and must retain at least one.
 
-Drag the **Thickness** slider in Pen Settings or the preset editor to see a live sample stroke. The preview follows the color, pen/highlighter, opacity, pressure and smoothing settings; its width is shown at page scale, independently of document zoom. When editing selected ink with Lasso, the final width is applied once at the end of the drag, so one Undo restores the previous thickness. Thickness is shown in millimeters, from approximately **0.132292 to 6.35 mm**. The app stores widths in fixed page coordinates, so zooming changes their display size rather than the saved stroke width. Pens support **10–100% opacity**, **Pressure sensitivity**, and **Stroke smoothing**. Highlighters use native **50% transparency**; their opacity field is not adjustable. Colors are selected visually: click a swatch in **Pen Settings**, or **More Colors…** to choose from the palette and drag in the color square. The rainbow slider changes the hue; the square changes saturation and brightness. **Apply** uses the new color and **Cancel** keeps the original. Existing color transparency is preserved. The preset editor and text-color button use the same picker.
+Drag the **Thickness** slider in Pen Settings or the preset editor to choose a fixed size and see a live sample stroke. Moye 1.11.0 offers **21 levels**, marked by ticks, from approximately **0.13 to 6.35 mm**. Fine sizes include **0.35** and **0.45 mm**, with larger increments for broad pens and highlighters, including **3 mm**. Arrow keys move to the next size; Home and End select the smallest and largest sizes. Previously saved custom widths keep their exact value until you adjust the slider.
+
+The preview follows the color, pen/highlighter, opacity, pressure and smoothing settings; its width is shown at page scale, independently of document zoom. When editing selected ink with Lasso, the final width is applied once at the end of the drag, so one Undo restores the previous thickness. The app stores widths in fixed page coordinates, so zooming changes their display size rather than the saved stroke width. Pens support **10–100% opacity**, **Pressure sensitivity**, and **Stroke smoothing**. Highlighters use native **50% transparency**; their opacity field is not adjustable. Colors are selected visually: click a swatch in **Pen Settings**, or **More Colors…** to choose from the palette and drag in the color square. The rainbow slider changes the hue; the square changes saturation and brightness. **Apply** uses the new color and **Cancel** keeps the original. Existing color transparency is preserved. The preset editor and text-color button use the same picker.
 
 Presets, their order and favorites, the last selected preset, eraser settings, and Draw and Hold are saved locally between launches. They are writing preferences rather than notebook content; see [Autosave and backups](#autosave-and-backups) for their separate settings file.
 
@@ -127,7 +129,9 @@ Images are limited to 20,000 pixels per side and 80 million pixels in total. The
 
 Choose **Insert → Import Document…** and select a PDF to append its pages to the current section. The original PDF is stored in your local library. You can add ink, highlighting, text boxes, and images over it. PDF import does not require Microsoft Office or LibreOffice.
 
-Click **Export** at the top to export the whole notebook. Added ink and text become PDF page content rather than editable Moye objects. Pressure ink stays vector-based, preserving its changing width and solid joins. New text boxes are exported as vector outlines: their appearance is retained, but the exported text cannot be selected or searched. Original PDF text retains its existing capabilities. Keep a `.moye` backup if you need to edit the contents later.
+Select a section in **Contents**, then click **Export** at the top to export only that section's pages in their displayed order. The suggested filename is **Notebook - Section.pdf**. Empty sections must have a page added before export. Section-only export is new in 1.11.0; earlier releases export the whole notebook.
+
+Added ink and text become PDF page content rather than editable Moye objects. Pressure ink stays vector-based, preserving its changing width and solid joins. New text boxes are exported as vector outlines: their appearance is retained, but the exported text cannot be selected or searched. Original PDF text retains its existing capabilities. Keep a `.moye` backup if you need to edit the contents later.
 
 **New in 1.10.0:** supported annotations containing page jumps or interactive actions no longer block PDF import. The notebook displays static pages and keeps the original PDF bytes in the library and `.moye` backups. Exported copies preserve page content and annotation appearances while disabling internal destinations and interactive actions, including chained actions on web links. Ordinary URI links remain. Your source file is not changed.
 
@@ -153,7 +157,7 @@ Use **Cancel Import** or press `Esc` while importing. Conversion has a two-minut
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Moye 1.10.0 retains the formats used by 1.7.0 and reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; Moye 1.6.2 and earlier cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Moye 1.11.0 retains the formats used by 1.7.0 and reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; Moye 1.6.2 and earlier cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
 
 Writing preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`. This file contains presets and writing settings, and is **not included in `.moye` backups**. For a library started with `--data-dir`, both the database and preferences stay in that selected directory. A damaged settings file is preserved before defaults are offered; an unreadable or unsupported-version file is protected from replacement. A writing-settings warning offers details and retry when available. When an existing preferences file cannot be read or belongs to a newer version, tool changes apply to the current session only; notebooks still save and the app can close normally. Restart after resolving that file. A later write failure retains pending settings for retry.
 

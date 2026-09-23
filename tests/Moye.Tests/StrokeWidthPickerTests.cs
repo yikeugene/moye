@@ -46,7 +46,7 @@ public sealed class StrokeWidthPickerTests
     }
 
     [Fact]
-    public void ManyValuesDuringOneThumbDragPreviewContinuouslyButCommitOnce()
+    public void ManyValuesDuringOneThumbDragPreviewSnappedWidthsButCommitOnce()
     {
         Sta(() =>
         {
@@ -56,13 +56,17 @@ public sealed class StrokeWidthPickerTests
             picker.StrokeWidthChanged += (_, _) => previews.Add(picker.StrokeWidth);
             picker.StrokeWidthCommitted += (_, _) => commits.Add(picker.StrokeWidth);
             StartDrag(thumb);
-            foreach (var width in new[] { 2.5, 3.75, 8d, 6.125 }) slider.Value = width;
-            Assert.Equal(new[] { 2.5, 3.75, 8d, 6.125 }, previews);
+            foreach (var position in new[] { 2.5, 3.75, 8d, 6.125 })
+            {
+                slider.Value = position;
+                Assert.Equal(Math.Round(position, MidpointRounding.AwayFromZero), slider.Value);
+            }
+            AssertWidthsInMillimetres(previews, .25, .30, .50, .40);
             Assert.Empty(commits);
             EndDrag(thumb);
             picker.CommitPendingWidth(); // Popup close after the native release.
             Pump();
-            Assert.Equal(new[] { 6.125 }, commits);
+            AssertWidthsInMillimetres(commits, .40);
         });
     }
 
@@ -71,20 +75,105 @@ public sealed class StrokeWidthPickerTests
     {
         Sta(() =>
         {
-            var picker = new StrokeWidthPicker { StrokeWidth = 5 };
+            var picker = new StrokeWidthPicker { StrokeWidth = Dip(.50) };
             var (slider, _) = PrepareSlider(picker);
             var commits = new List<double>();
             picker.StrokeWidthCommitted += (_, _) => commits.Add(picker.StrokeWidth);
             // These are the same routed commands used by the arrow/PageUp keys.
             Slider.IncreaseSmall.Execute(null, slider);
-            Assert.Equal(5 + slider.SmallChange, picker.StrokeWidth, 10);
+            Assert.Equal(Dip(.60), picker.StrokeWidth, 10);
             Slider.DecreaseLarge.Execute(null, slider);
-            Assert.Equal(5 + slider.SmallChange - slider.LargeChange, picker.StrokeWidth, 10);
+            Assert.Equal(Dip(.40), picker.StrokeWidth, 10);
             slider.Value = 7.25;
             Assert.Equal(3, commits.Count);
-            Assert.Equal(7.25, commits[^1]);
+            AssertWidthsInMillimetres(commits, .60, .40, .45);
             picker.CommitPendingWidth();
             Assert.Equal(3, commits.Count);
+        });
+    }
+
+    [Theory]
+    [InlineData(.33, .35, .30)]
+    [InlineData(.37, .40, .35)]
+    public void FirstArrowFromALegacyWidthChoosesTheAdjacentStopInThatDirection(
+        double legacyMillimetres, double nextMillimetres, double previousMillimetres)
+    {
+        Sta(() =>
+        {
+            var legacyWidth = Dip(legacyMillimetres);
+            var picker = new StrokeWidthPicker { StrokeWidth = legacyWidth };
+            var (slider, _) = PrepareSlider(picker);
+            var previews = new List<double>(); var commits = new List<double>();
+            picker.StrokeWidthChanged += (_, _) => previews.Add(picker.StrokeWidth);
+            picker.StrokeWidthCommitted += (_, _) => commits.Add(picker.StrokeWidth);
+            picker.CommitPendingWidth();
+            Assert.Equal(legacyWidth, picker.StrokeWidth);
+            Assert.Empty(previews); Assert.Empty(commits);
+
+            Slider.IncreaseSmall.Execute(null, slider);
+            Assert.Equal(Dip(nextMillimetres), picker.StrokeWidth, 10);
+            picker.StrokeWidth = legacyWidth; // Loading another preset is not a user edit.
+            picker.CommitPendingWidth();
+            Assert.Single(previews); Assert.Single(commits);
+            Slider.DecreaseSmall.Execute(null, slider);
+            AssertWidthsInMillimetres(previews, nextMillimetres, previousMillimetres);
+            AssertWidthsInMillimetres(commits, nextMillimetres, previousMillimetres);
+        });
+    }
+
+    [Fact]
+    public void MovingWithinTheSameStopDoesNotRepeatPreviewsOrCommits()
+    {
+        Sta(() =>
+        {
+            var picker = new StrokeWidthPicker { StrokeWidth = Dip(.50) };
+            var (slider, thumb) = PrepareSlider(picker);
+            var previews = new List<double>(); var commits = new List<double>();
+            picker.StrokeWidthChanged += (_, _) => previews.Add(picker.StrokeWidth);
+            picker.StrokeWidthCommitted += (_, _) => commits.Add(picker.StrokeWidth);
+            StartDrag(thumb);
+            slider.Value = 8.10; slider.Value = 8.49;
+            Assert.Empty(previews); Assert.Empty(commits);
+            slider.Value = 8.50; // The midpoint consistently chooses the larger width.
+            slider.Value = 9.49; slider.Value = 9.10;
+            AssertWidthsInMillimetres(previews, .60);
+            Assert.Empty(commits);
+            EndDrag(thumb);
+            StartDrag(thumb); slider.Value = 9.30; EndDrag(thumb);
+            picker.CommitPendingWidth(); Pump();
+            AssertWidthsInMillimetres(previews, .60);
+            AssertWidthsInMillimetres(commits, .60);
+        });
+    }
+
+    [Fact]
+    public void KeyboardCanReachEveryStopAndBothExistingWidthLimitsWithoutOvershooting()
+    {
+        Sta(() =>
+        {
+            var picker = new StrokeWidthPicker { StrokeWidth = .5 };
+            var (slider, _) = PrepareSlider(picker);
+            var previews = new List<double>(); var commits = new List<double>();
+            picker.StrokeWidthChanged += (_, _) =>
+            {
+                Assert.Equal(Math.Truncate(slider.Value), slider.Value);
+                previews.Add(picker.StrokeWidth);
+            };
+            picker.StrokeWidthCommitted += (_, _) => commits.Add(picker.StrokeWidth);
+            Slider.DecreaseSmall.Execute(null, slider);
+            Assert.Empty(commits);
+            for (var index = 0; index < 30; index++) Slider.IncreaseSmall.Execute(null, slider);
+            Assert.Equal(24, picker.StrokeWidth);
+            Assert.Equal(20, previews.Count);
+            Assert.Equal(previews, commits);
+            Assert.True(previews.Zip(previews.Skip(1)).All(pair => pair.First < pair.Second));
+            Assert.Contains(previews, width => Math.Abs(width - Dip(.35)) < 1e-10);
+            Assert.Contains(previews, width => Math.Abs(width - Dip(.45)) < 1e-10);
+            Assert.Contains(previews, width => Math.Abs(width - Dip(3)) < 1e-10);
+            for (var index = 0; index < 30; index++) Slider.DecreaseSmall.Execute(null, slider);
+            Assert.Equal(.5, picker.StrokeWidth);
+            Assert.Equal(40, previews.Count);
+            Assert.Equal(previews, commits);
         });
     }
 
@@ -101,15 +190,15 @@ public sealed class StrokeWidthPickerTests
             // Mouse/stylus release or capture loss queues this same callback.
             typeof(StrokeWidthPicker).GetMethod("QueueCommit", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(picker, null);
             EndDrag(thumb);
-            Assert.Equal(new[] { 3d }, commits);
+            AssertWidthsInMillimetres(commits, .25);
 
             StartDrag(thumb); slider.Value = 6;
             Pump(); // Process the previous drag's pending cleanup during this drag.
-            Assert.Equal(new[] { 3d }, commits);
+            AssertWidthsInMillimetres(commits, .25);
             slider.Value = 9;
-            Assert.Equal(new[] { 3d }, commits);
+            AssertWidthsInMillimetres(commits, .25);
             EndDrag(thumb);
-            Assert.Equal(new[] { 3d, 9d }, commits);
+            AssertWidthsInMillimetres(commits, .25, .60);
         });
     }
 
@@ -164,6 +253,14 @@ public sealed class StrokeWidthPickerTests
 
     private static void StartDrag(Thumb thumb) => thumb.RaiseEvent(new DragStartedEventArgs(0, 0) { RoutedEvent = Thumb.DragStartedEvent });
     private static void EndDrag(Thumb thumb) => thumb.RaiseEvent(new DragCompletedEventArgs(0, 0, false) { RoutedEvent = Thumb.DragCompletedEvent });
+
+    private static double Dip(double millimetres) => millimetres * 96 / 25.4;
+
+    private static void AssertWidthsInMillimetres(IReadOnlyList<double> actual, params double[] expected)
+    {
+        Assert.Equal(expected.Length, actual.Count);
+        for (var index = 0; index < expected.Length; index++) Assert.Equal(Dip(expected[index]), actual[index], 10);
+    }
 
     private static byte[] RenderSample(StrokeWidthPicker picker)
     {

@@ -134,7 +134,7 @@ public sealed class ColorPickerSurface : StackPanel
             foreach (var (button, color) in _swatches)
             {
                 bool selected = color.R == SelectedColor.R && color.G == SelectedColor.G && color.B == SelectedColor.B;
-                button.BorderBrush = selected ? new SolidColorBrush(Color.FromRgb(50, 106, 232)) : Brushes.Transparent;
+                button.BorderBrush = selected ? new SolidColorBrush(Color.FromRgb(35, 100, 81)) : Brushes.Transparent;
                 AutomationProperties.SetItemStatus(button, selected ? "Selected" : "");
             }
             _description.Text = InitialColor.A == 255
@@ -164,8 +164,8 @@ public sealed class ColorPickerSurface : StackPanel
             <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
           </Border>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#326AE8"/></Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#326AE8"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#236451"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#236451"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
         """);
@@ -198,7 +198,7 @@ public sealed class ColorPickerSurface : StackPanel
             </Track>
             <Border x:Name="Focus" IsHitTestVisible="False" BorderBrush="Transparent" BorderThickness="2" CornerRadius="8"/>
           </Grid>
-          <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Focus" Property="BorderBrush" Value="#326AE8"/></Trigger></ControlTemplate.Triggers>
+          <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Focus" Property="BorderBrush" Value="#236451"/></Trigger></ControlTemplate.Triggers>
         </ControlTemplate>
         """);
 }
@@ -320,7 +320,7 @@ public sealed class SaturationValuePlane : FrameworkElement
         context.DrawRectangle(new LinearGradientBrush(Colors.White, Color.FromArgb(0, 255, 255, 255), new Point(0, 0), new Point(1, 0)), null, rect);
         context.DrawRectangle(new LinearGradientBrush(Color.FromArgb(0, 0, 0, 0), Colors.Black, new Point(0, 0), new Point(0, 1)), null, rect);
         context.Pop();
-        context.DrawRoundedRectangle(null, new Pen(IsKeyboardFocused ? new SolidColorBrush(Color.FromRgb(50, 106, 232)) : new SolidColorBrush(Color.FromRgb(194, 204, 219)), IsKeyboardFocused ? 3 : 1), rect, 10, 10);
+        context.DrawRoundedRectangle(null, new Pen(IsKeyboardFocused ? new SolidColorBrush(Color.FromRgb(35, 100, 81)) : new SolidColorBrush(Color.FromRgb(194, 204, 219)), IsKeyboardFocused ? 3 : 1), rect, 10, 10);
         var marker = new Point(Math.Clamp(Saturation * rect.Width, 8, Math.Max(8, rect.Width - 8)), Math.Clamp((1 - Value) * rect.Height, 8, Math.Max(8, rect.Height - 8)));
         context.DrawEllipse(null, new Pen(Brushes.Black, 4), marker, 6, 6);
         context.DrawEllipse(null, new Pen(Brushes.White, 2), marker, 6, 6);

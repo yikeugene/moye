@@ -25,6 +25,9 @@
     </Style>
 
     <Style TargetType="Button">
+      <Setter Property="FontFamily" Value="Segoe UI, Microsoft JhengHei UI"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="Medium"/>
       <Setter Property="MinHeight" Value="44"/>
       <Setter Property="MinWidth" Value="44"/>
       <Setter Property="Padding" Value="14,8"/>
@@ -41,27 +44,34 @@
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Grid>
-              <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="8"
-                      Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}"
+              <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="10"
+                      BorderBrush="{TemplateBinding BorderBrush}"
                       BorderThickness="{TemplateBinding BorderThickness}">
-                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                  RecognizesAccessKey="True"/>
+                <Grid>
+                  <Border x:Name="HoverOverlay" Background="#14236451" Opacity="0" CornerRadius="9"
+                          IsHitTestVisible="False"/>
+                  <ContentPresenter Margin="{TemplateBinding Padding}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    RecognizesAccessKey="True"/>
+                </Grid>
               </Border>
-              <Border x:Name="FocusRing" BorderBrush="Transparent" BorderThickness="2" CornerRadius="8"
+              <Border x:Name="FocusRing" BorderBrush="Transparent" BorderThickness="2" CornerRadius="10"
                       IsHitTestVisible="False"/>
             </Grid>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Selection}"/>
+                <Setter TargetName="HoverOverlay" Property="Opacity" Value="1"/>
               </Trigger>
               <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Chrome" Property="Background" Value="#D7E7DC"/>
+                <Setter TargetName="HoverOverlay" Property="Background" Value="#29236451"/>
+                <Setter TargetName="HoverOverlay" Property="Opacity" Value="1"/>
               </Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True">
                 <Setter TargetName="FocusRing" Property="BorderBrush" Value="{StaticResource Accent}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="HoverOverlay" Property="Opacity" Value="0"/>
                 <Setter Property="Opacity" Value="0.4"/>
                 <Setter Property="Cursor" Value="Arrow"/>
               </Trigger>
@@ -74,18 +84,20 @@
     <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Background" Value="{StaticResource Accent}"/>
       <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="#1A5040"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Grid>
-              <Border x:Name="PrimaryChrome" Background="{TemplateBinding Background}" CornerRadius="8"
-                      Padding="{TemplateBinding Padding}" BorderThickness="1" BorderBrush="Transparent">
+              <Border x:Name="PrimaryChrome" Background="{TemplateBinding Background}" CornerRadius="10"
+                      Padding="{TemplateBinding Padding}" BorderThickness="{TemplateBinding BorderThickness}"
+                      BorderBrush="{TemplateBinding BorderBrush}">
                 <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                   RecognizesAccessKey="True"/>
               </Border>
-              <Border x:Name="FocusRing" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6"
+              <Border x:Name="FocusRing" BorderBrush="Transparent" BorderThickness="2" CornerRadius="7"
                       Margin="3" IsHitTestVisible="False"/>
             </Grid>
             <ControlTemplate.Triggers>
@@ -99,6 +111,69 @@
                 <Setter TargetName="FocusRing" Property="BorderBrush" Value="#DBEBDE"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Width" Value="44"/>
+      <Setter Property="Height" Value="44"/>
+      <Setter Property="Padding" Value="8"/>
+      <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+      <Setter Property="FontSize" Value="18"/>
+      <Setter Property="FontWeight" Value="Normal"/>
+    </Style>
+    <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="{StaticResource Surface}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+    </Style>
+    <Style x:Key="TonalButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="{StaticResource AccentSoft}"/>
+      <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+      <Setter Property="BorderBrush" Value="#D7E5DA"/>
+    </Style>
+    <Style x:Key="NotebookOpenButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="{StaticResource Surface}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="Padding" Value="14,14,14,8"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid>
+              <Border Background="{TemplateBinding Background}" CornerRadius="10,10,0,0"
+                      BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                <Grid>
+                  <Border x:Name="HoverOverlay" Background="#0D236451" Opacity="0" CornerRadius="10,10,0,0"
+                          IsHitTestVisible="False"/>
+                  <ContentPresenter Margin="{TemplateBinding Padding}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    RecognizesAccessKey="True"/>
+                </Grid>
+              </Border>
+              <Border x:Name="FocusRing" BorderBrush="Transparent" BorderThickness="2" CornerRadius="10,10,0,0"
+                      IsHitTestVisible="False"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="HoverOverlay" Property="Opacity" Value="1"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="HoverOverlay" Property="Background" Value="#1A236451"/>
+                <Setter TargetName="HoverOverlay" Property="Opacity" Value="1"/>
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="FocusRing" Property="BorderBrush" Value="{StaticResource Accent}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="HoverOverlay" Property="Opacity" Value="0"/>
                 <Setter Property="Opacity" Value="0.4"/>
                 <Setter Property="Cursor" Value="Arrow"/>
               </Trigger>
@@ -185,8 +260,25 @@
       <Setter Property="Foreground" Value="{StaticResource Ink}"/>
       <Setter Property="Background" Value="#FFFEFA"/>
       <Setter Property="BorderBrush" Value="{StaticResource Stroke}"/>
-      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="12,8"/>
       <Setter Property="MaxWidth" Value="320"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ToolTip">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                <ContentPresenter.Resources>
+                  <Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/></Style>
+                </ContentPresenter.Resources>
+              </ContentPresenter>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <Style x:Key="SliderTrackButton" TargetType="RepeatButton">

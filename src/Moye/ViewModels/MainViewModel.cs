@@ -83,6 +83,27 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
     public string CurrentPageText => SelectedPage is null ? "" : $"Page {SelectedPage.Number} of {Pages.Count}";
 
+    public NotebookDocument? CreateSelectedSectionExportSnapshot()
+    {
+        var document = Document;
+        var section = document?.Sections.FirstOrDefault(section => section.Id == SelectedSection?.Id);
+        if (document is null || section is null) return null;
+
+        // Capture the current section before the save dialog/background export.
+        // Only snapshot its pages; the editable notebook and backups keep all sections.
+        return new NotebookDocument
+        {
+            Id = document.Id,
+            Title = $"{document.Title} - {section.Title}",
+            Folder = document.Folder,
+            CreatedUtc = document.CreatedUtc,
+            ModifiedUtc = document.ModifiedUtc,
+            Sections = [section with {}],
+            Pages = document.Pages.Where(page => page.SectionId == section.Id)
+                .Select(page => page.Snapshot()).ToList()
+        };
+    }
+
     public MainViewModel(INotebookRepository repository)
     {
         Repository = repository; Pdf = new PdfService(repository); Backup = new BackupService(repository); Autosave = new(repository);

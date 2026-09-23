@@ -593,10 +593,23 @@ public partial class MainWindow : Window
     private async void ExportPdfClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel.Document is null) return;
-        CommitEditors(); var dialog = new SaveFileDialog { Filter = "PDF documents|*.pdf", FileName = SafeFileName(ViewModel.Title) + ".pdf", Title = "Export PDF (text boxes become vector outlines)" };
+        CommitEditors();
+        var snapshot = ViewModel.CreateSelectedSectionExportSnapshot();
+        if (snapshot is null) return;
+        if (snapshot.Pages.Count == 0)
+        {
+            MessageBox.Show(this, "This section has no pages. Add a page before exporting it as a PDF.",
+                "Export Section PDF", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var dialog = new SaveFileDialog
+        {
+            Filter = "PDF documents|*.pdf",
+            FileName = SafeFileName(snapshot.Title) + ".pdf",
+            Title = "Export Section PDF (text boxes become vector outlines)"
+        };
         if (dialog.ShowDialog(this) != true) return;
-        var snapshot = ViewModel.Document.Snapshot();
-        await RunAsync("Exporting PDF…", async () => { await ViewModel.Pdf.ExportAsync(dialog.FileName, snapshot); ViewModel.Status = "PDF exported · " + Path.GetFileName(dialog.FileName); });
+        await RunAsync("Exporting section PDF…", async () => { await ViewModel.Pdf.ExportAsync(dialog.FileName, snapshot); ViewModel.Status = "Section PDF exported · " + Path.GetFileName(dialog.FileName); });
     }
     private async void ImageClick(object sender, RoutedEventArgs e)
     {
@@ -660,7 +673,7 @@ public partial class MainWindow : Window
     private async void RetrySaveClick(object sender, RoutedEventArgs e) => await RunAsync("Retrying save…", async () => { await ViewModel.Autosave.RetryAsync(); await SavePreferencesAsync(true); });
     private void MoreClick(object sender, RoutedEventArgs e) { var button = (Button)sender; button.ContextMenu.PlacementTarget = button; button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true; }
     private void HelpClick(object sender, RoutedEventArgs e) => MessageBox.Show(this,
-        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nMy notebooks saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics. Right-click a page or thumbnail to duplicate,\nmove, delete or change its paper. Insert adds pages and documents.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Manage pens for your everyday pens; press 1–9 to switch.\nPen Settings offers color swatches and a Thickness slider with preview.\nMore Colors opens the visual palette. Manage pens controls\nopacity, pressure and smoothing. Draw and Hold straightens lines.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nFocus keeps floating pen tools, settings, Undo and Redo on the left.\nExit Focus restores the editor. Esc finishes typing before leaving focus.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nExport creates a PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
+        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nMy notebooks saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics. Right-click a page or thumbnail to duplicate,\nmove, delete or change its paper. Insert adds pages and documents.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Manage pens for your everyday pens; press 1–9 to switch.\nPen Settings offers color swatches and a Thickness slider with preview.\nMore Colors opens the visual palette. Manage pens controls\nopacity, pressure and smoothing. Draw and Hold straightens lines.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nFocus keeps floating pen tools, settings, Undo and Redo on the left.\nExit Focus restores the editor. Esc finishes typing before leaving focus.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nExport saves only the selected section as a PDF,\nwith flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
 
     private void SidebarTabClick(object sender, RoutedEventArgs e) => ShowSidebarTab((string)((Button)sender).Tag == "Notebooks");
     private async void ShowNotebooksClick(object sender, RoutedEventArgs e)

@@ -43,7 +43,7 @@ public sealed class InputDialog : Window
             Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0, 8, 0, 0)
         };
-        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 88 };
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 88, Style = (Style)FindResource("SecondaryButton") };
         var save = new Button { Content = "Save", IsDefault = true, MinWidth = 100, Style = (Style)FindResource("PrimaryButton") };
         save.Click += (_, _) =>
         {

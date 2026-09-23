@@ -141,12 +141,29 @@ public partial class MainWindow
         foreach (var preset in _preferences.Presets.Where(p => p.IsFavorite).Take(9))
         {
             var number = ++index;
-            var panel = new StackPanel { Orientation = Orientation.Horizontal };
-            panel.Children.Add(new Ellipse { Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(preset.Color)), Width = 12, Height = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
-            panel.Children.Add(new TextBlock { Text = $"{number}  {preset.Name}", MaxWidth = 105, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
             bool active = _workingPreset.Id == preset.Id && _tool == preset.Tool;
-            var button = new Button { Content = panel, Tag = preset.Id, MinHeight = 44, Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 0, 4, 0), AllowDrop = true,
-                Background = active ? (Brush)FindResource("AccentSoft") : Brushes.Transparent,
+            var panel = new StackPanel { Orientation = Orientation.Horizontal };
+            panel.Children.Add(new Ellipse
+            {
+                Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(preset.Color)),
+                Stroke = (Brush)FindResource("MutedInk"), StrokeThickness = .5, Width = 14, Height = 14,
+                VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0)
+            });
+            panel.Children.Add(new TextBlock { Text = preset.Name, MaxWidth = 90, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+            panel.Children.Add(new Border
+            {
+                Width = 18, Height = 20, CornerRadius = new CornerRadius(5), Margin = new Thickness(8, 0, 0, 0),
+                Background = active ? (Brush)FindResource("Accent") : (Brush)FindResource("SubtleSurface"),
+                Child = new TextBlock
+                {
+                    Text = number.ToString(), FontSize = 10, FontWeight = FontWeights.SemiBold,
+                    Foreground = active ? Brushes.White : (Brush)FindResource("MutedInk"),
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+                }
+            });
+            var button = new Button { Content = panel, Tag = preset.Id, Style = (Style)FindResource("SecondaryButton"), MinHeight = 44, Padding = new Thickness(8, 6, 8, 6), Margin = new Thickness(0, 0, 6, 0), AllowDrop = true,
+                Background = active ? (Brush)FindResource("AccentSoft") : Brushes.White,
+                BorderBrush = active ? (Brush)FindResource("Accent") : (Brush)FindResource("Stroke"),
                 ToolTip = $"{preset.Name} · {preset.Width * 25.4 / 96:0.##} mm ({number})\nDrag to reorder. Use Manage pens to edit or hide." };
             System.Windows.Automation.AutomationProperties.SetName(button, $"Preset {number}: {preset.Name}");
             button.Click += (_, _) => { ApplyPreset(preset); PageList.Focus(); };

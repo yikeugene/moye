@@ -11,32 +11,48 @@ using Moye.Models;
 
 namespace Moye.Controls;
 
-/// <summary>Visual width adjustment. Preview changes continuously; one pointer gesture commits once.</summary>
+/// <summary>Stepped width adjustment with a live preview; one pointer gesture commits once.</summary>
 public sealed class StrokeWidthPicker : UserControl
 {
+    // Equally spaced slider positions make the fine pen sizes as easy to reach
+    // as broader highlighter sizes. Persisted widths remain in page DIP.
+    private static readonly double[] WidthSteps =
+    [
+        WritingPreferences.MinimumWidth,
+        .. new[] { .15, .2, .25, .3, .35, .4, .45, .5, .6, .8, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6 }
+            .Select(mm => mm * 96 / 25.4),
+        WritingPreferences.MaximumWidth
+    ];
     private readonly Slider _slider = new()
     {
-        Minimum = WritingPreferences.MinimumWidth, Maximum = WritingPreferences.MaximumWidth,
-        Value = 1.7008, SmallChange = .1, LargeChange = 1, MinHeight = 44,
+        Minimum = 0, Maximum = WidthSteps.Length - 1,
+        SmallChange = 1, LargeChange = 3, TickFrequency = 1, IsSnapToTickEnabled = true, MinHeight = 44,
         IsMoveToPointEnabled = true, VerticalAlignment = VerticalAlignment.Center
     };
     private readonly TextBlock _value = new() { FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly InkSample _sample = new() { Height = 62, Margin = new Thickness(0, 4, 0, 0) };
     private bool _synchronizing, _adjusting;
     private int _gestureRevision;
-    private double _committedWidth = 1.7008;
+    private double _strokeWidth = 1.7008, _committedWidth = 1.7008;
     public event EventHandler? StrokeWidthChanged;
     public event EventHandler? StrokeWidthCommitted;
 
     public double StrokeWidth
     {
-        get => _slider.Value;
+        get => _strokeWidth;
         set
         {
             if (!double.IsFinite(value)) return;
             _gestureRevision++; _adjusting = false;
             _synchronizing = true;
-            try { _slider.Value = Math.Clamp(value, _slider.Minimum, _slider.Maximum); _committedWidth = _slider.Value; }
+            try
+            {
+                // Opening settings or changing another preset field must not
+                // round an existing width. Snap only deliberate slider edits.
+                _strokeWidth = Math.Clamp(value, WritingPreferences.MinimumWidth, WritingPreferences.MaximumWidth);
+                _slider.Value = PositionForWidth(_strokeWidth);
+                _committedWidth = _strokeWidth;
+            }
             finally { _synchronizing = false; }
             RefreshPreview();
         }
@@ -48,14 +64,33 @@ public sealed class StrokeWidthPicker : UserControl
         var heading = new DockPanel();
         DockPanel.SetDock(_value, Dock.Right); heading.Children.Add(_value);
         heading.Children.Add(new TextBlock { Text = "Thickness", Foreground = Brushes.SlateGray, FontSize = 12 });
-        panel.Children.Add(heading); panel.Children.Add(_slider); panel.Children.Add(_sample); Content = panel;
+        panel.Children.Add(heading); panel.Children.Add(_slider);
+        panel.Children.Add(new TickBar
+        {
+            Minimum = _slider.Minimum, Maximum = _slider.Maximum, TickFrequency = 1,
+            Placement = TickBarPlacement.Bottom, Height = 6, Margin = new Thickness(22, 0, 22, 0),
+            Fill = Brushes.SlateGray, IsHitTestVisible = false
+        });
+        panel.Children.Add(_sample); Content = panel;
         AutomationProperties.SetName(_slider, "Stroke thickness");
         _slider.SetResourceReference(StyleProperty, "TouchSlider");
-        _slider.ToolTip = "Drag to preview thickness. Arrow keys adjust in small steps.";
+        _slider.ToolTip = "Drag between fixed thickness levels. Arrow keys choose the next size.";
+        _slider.CommandBindings.Add(new CommandBinding(Slider.IncreaseSmall, (_, e) =>
+        { MoveToAdjacentStep(true); e.Handled = true; }));
+        _slider.CommandBindings.Add(new CommandBinding(Slider.DecreaseSmall, (_, e) =>
+        { MoveToAdjacentStep(false); e.Handled = true; }));
         _slider.ValueChanged += (_, _) =>
         {
-            RefreshPreview();
             if (_synchronizing) return;
+            var index = (int)Math.Round(_slider.Value, MidpointRounding.AwayFromZero);
+            // WPF snaps pointer/keyboard input; also normalize accessibility
+            // range-value edits, which may otherwise supply fractional levels.
+            _synchronizing = true;
+            try { _slider.Value = index; }
+            finally { _synchronizing = false; }
+            if (_strokeWidth == WidthSteps[index]) return;
+            _strokeWidth = WidthSteps[index];
+            RefreshPreview();
             StrokeWidthChanged?.Invoke(this, EventArgs.Empty);
             if (!_adjusting) CommitPendingWidth();
         };
@@ -72,7 +107,23 @@ public sealed class StrokeWidthPicker : UserControl
         _slider.LostMouseCapture += (_, _) => { if (!_slider.IsMouseCaptureWithin) QueueCommit(); };
         _slider.LostKeyboardFocus += (_, _) => CommitPendingWidth();
         Unloaded += (_, _) => CommitPendingWidth();
-        RefreshPreview();
+        StrokeWidth = _strokeWidth;
+    }
+
+    private static double PositionForWidth(double width)
+    {
+        for (var i = 1; i < WidthSteps.Length; i++)
+            if (width <= WidthSteps[i])
+                return i - 1 + (width - WidthSteps[i - 1]) / (WidthSteps[i] - WidthSteps[i - 1]);
+        return WidthSteps.Length - 1;
+    }
+
+    private void MoveToAdjacentStep(bool increase)
+    {
+        // A loaded custom width may lie between levels. The first arrow press
+        // must choose the next size in that direction, without skipping it.
+        var position = increase ? Math.Floor(_slider.Value) + 1 : Math.Ceiling(_slider.Value) - 1;
+        _slider.Value = Math.Clamp(position, _slider.Minimum, _slider.Maximum);
     }
 
     private void BeginAdjustment() { _gestureRevision++; _adjusting = true; }
@@ -104,7 +155,8 @@ public sealed class StrokeWidthPicker : UserControl
     private void RefreshPreview()
     {
         _value.Text = (StrokeWidth * 25.4 / 96).ToString("0.##", CultureInfo.CurrentCulture) + " mm";
-        AutomationProperties.SetHelpText(_slider, "Current thickness: " + _value.Text);
+        AutomationProperties.SetHelpText(_slider, "Current thickness: " + _value.Text +
+            $". {WidthSteps.Length} thickness levels; arrow keys choose the next size.");
         _sample.StrokeWidth = StrokeWidth; _sample.InvalidateVisual();
     }
 

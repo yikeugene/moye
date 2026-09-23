@@ -4,11 +4,13 @@
 
 Moye should support a complete university workflow: write during a lecture, annotate course material, organize knowledge, and revisit it without losing time or notes. This roadmap preserves all 41 requested feature areas. It is a development plan, not a claim that every listed feature is available.
 
-This status reflects **Moye 1.10.0**, reviewed on **2026-09-23**. Version 1.10.0 adds floating focus tools, page context menus and PDF navigation annotation import fixes. Version 1.9.0 adds the refreshed workspace, local Office document import and PDF compatibility fixes. Version 1.8.0 adds visual color selection, live stroke-thickness previews and touch-navigation scheduling/inertia, while retaining notebook sections and the SQLite startup repair from 1.7.0. The EXE installer continues to create desktop and Start menu shortcuts automatically. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
+This status reflects **Moye 1.11.0**, reviewed on **2026-09-23**. Version 1.11.0 adds selected-section PDF export, 21 fixed pen thickness levels and button/interface polish. Version 1.10.0 adds floating focus tools, page context menus and PDF navigation annotation import fixes. Version 1.9.0 adds the refreshed workspace, local Office document import and PDF compatibility fixes. Version 1.8.0 adds visual color selection, live stroke-thickness previews and touch-navigation scheduling/inertia, while retaining notebook sections and the SQLite startup repair from 1.7.0. The EXE installer continues to create desktop and Start menu shortcuts automatically. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
 
 Version 1.6.0 adds an explicit Type action, contextual text controls and whole-box formatting. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; publication does not mark those outstanding checks complete.
 
 Version 1.8.0 includes visual color palettes for ink, pen presets and text, plus a draggable thickness slider with a live pen/highlighter preview. Mouse checks covered these controls and saved values; physical touch and pen interaction still needs device validation.
+
+Version 1.11.0 changes that slider to 21 fixed thickness levels, with visible ticks, finer pen increments and larger highlighter increments. Pen Settings (including focus mode) and preset editing share the same levels; opening existing custom presets preserves their exact width until the slider is adjusted.
 
 The 1.8.0 finger-navigation implementation combines touch packets once per display update, adds elapsed-time swipe inertia, and defers thumbnail work during movement. Synthetic tests cover retained movement, pinch/contact transitions, boundary reversal and cancellation; these are correctness checks, not measured hardware frame-rate or latency acceptance.
 
@@ -263,7 +265,7 @@ P2 changes that introduce new persistent fields or document modes need a documen
 
 **Status: Partial. Priority: P1.**
 
-- [x] Whole-notebook export with original PDF content, vector ink outlines, images and flattened annotations.
+- [x] Selected-section export with original PDF content, vector ink outlines, images and flattened annotations (since 1.11.0; earlier releases export the whole notebook).
 - [x] Added text boxes export as vector glyph outlines; original PDF text keeps its original capabilities.
 - [ ] Add selected-page/range export and explicit export options where supported. Added text is currently not searchable/selectable in the exported PDF.
 
