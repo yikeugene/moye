@@ -61,4 +61,43 @@ public sealed class PackagingTests
         Assert.Contains(wrapper.Message, message);
         Assert.Contains(cause.Message, message);
     }
+
+    [Theory]
+    [InlineData("The PDF annotation is unsupported.")]
+    [InlineData("PDF page 6: The PDF annotation is unsupported.")]
+    public void DuplicateInnerExplanationKeepsOnlyTheOuterMessage(string outerMessage)
+    {
+        var cause = new InvalidDataException("The PDF annotation is unsupported.");
+        var error = new InvalidDataException(outerMessage, cause);
+
+        Assert.Equal(outerMessage, ErrorReporter.Describe(error));
+    }
+
+    [Theory]
+    [InlineData("Unable to import PDF page 6.")]
+    [InlineData("The PDF annotation is unsupported. Please inspect page 6.")]
+    [InlineData("Page 6 reported The PDF annotation is unsupported.")]
+    public void DistinctOrIncidentalOuterTextStillIncludesRootExplanation(string outerMessage)
+    {
+        var cause = new InvalidDataException("The PDF annotation is unsupported.");
+        var error = new InvalidDataException(outerMessage, cause);
+
+        Assert.Equal(outerMessage + "\n\n" + cause.Message, ErrorReporter.Describe(error));
+    }
+
+    [Fact]
+    public void DeduplicatedPageErrorStillLogsTheEntireExceptionChain()
+    {
+        using var directory = new StorageTestDirectory();
+        var path = Path.Combine(directory.Root, "error.log");
+        var cause = new InvalidDataException("The PDF annotation is unsupported.");
+        var intermediate = new IOException("Unable to read the annotation dictionary.", cause);
+        var error = new InvalidDataException("PDF page 6: " + cause.Message, intermediate);
+
+        var message = new ErrorReporter(path).Report(error);
+
+        Assert.Equal(error.Message + "\n\nDetails were saved to:\n" + path, message);
+        Assert.Contains(error.ToString(), File.ReadAllText(path));
+        Assert.Contains(intermediate.Message, File.ReadAllText(path));
+    }
 }

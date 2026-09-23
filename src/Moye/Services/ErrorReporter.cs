@@ -27,6 +27,13 @@ public sealed class ErrorReporter(string logPath)
                     "\n\n" + cause.Message;
         }
         var root = exception.GetBaseException();
-        return ReferenceEquals(root, exception) ? exception.Message : exception.Message + "\n\n" + root.Message;
+        var message = exception.Message;
+        // Page-specific failures already include the underlying explanation after their context.
+        // Keep that context without repeating the same explanation in the dialog.
+        var includesRootMessage = string.Equals(message, root.Message, StringComparison.Ordinal) ||
+            message.EndsWith(": " + root.Message, StringComparison.Ordinal);
+        return ReferenceEquals(root, exception) || includesRootMessage
+            ? message
+            : message + "\n\n" + root.Message;
     }
 }

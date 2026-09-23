@@ -74,13 +74,13 @@ public sealed class OfficePdfPreparationTests : IDisposable
     }
 
     [Fact]
-    public async Task PreparedDocumentPassesNormalImportAndKeepsItsVisibleContentsThroughExport()
+    public async Task PreparedDocumentMatchesDirectImportAndKeepsItsVisibleContentsThroughExport()
     {
         var path = WriteFixture("/Dest [3 0 R /Fit]");
         using var repository = new MemoryRepository();
         var pdf = new PdfService(repository);
-        await Assert.ThrowsAsync<InvalidDataException>(() => pdf.ImportAsync(path));
-        Assert.Empty(repository.Assets);
+        var original = Assert.Single(await pdf.ImportAsync(path));
+        var originalBitmap = await pdf.RenderAsync(original, 2);
         await OfficePdfPreparation.PrepareAsync(path);
         var page = Assert.Single(await pdf.ImportAsync(path));
         var before = await pdf.RenderAsync(page, 2);
@@ -96,6 +96,9 @@ public sealed class OfficePdfPreparationTests : IDisposable
         before.CopyPixels(originalPixels, stride, 0);
         after.CopyPixels(exportedPixels, stride, 0);
         Assert.Equal(originalPixels, exportedPixels);
+        var directImportPixels = new byte[stride * originalBitmap.PixelHeight];
+        originalBitmap.CopyPixels(directImportPixels, stride, 0);
+        Assert.Equal(originalPixels, directImportPixels);
     }
 
     [Fact]

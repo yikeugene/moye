@@ -69,14 +69,12 @@ public sealed class PdfImportTests : IDisposable
     [InlineData("calculations", "/AcroForm << /Fields [] /CO [5 0 R] >>", "", "<< /FT /Tx /T (Input) >>")]
     [InlineData("widget", "/AcroForm << /Fields [] >>", "/Annots [5 0 R]", "<< /Type /Annot /Subtype /Widget /Rect [20 20 50 50] /FT /Tx /T (Input) >>")]
     [InlineData("signature", "/Perms << /DocMDP 5 0 R >>", "", "<< /Type /Sig >>")]
-    [InlineData("internal-link", "", "/Annots [5 0 R]", "<< /Type /Annot /Subtype /Link /Rect [20 20 50 50] /Dest [3 0 R /Fit] >>")]
-    [InlineData("additional-action", "", "/Annots [5 0 R]", "<< /Type /Annot /Subtype /Link /Rect [20 20 50 50] /AA << /E << /S /JavaScript /JS (void 0) >> >> >>")]
     public async Task InteractiveContentIsStillRejectedBeforeStoringAnyAsset(string kind, string catalog, string page, string extraObject)
     {
         var source = await WritePdfAsync(catalog, page, [extraObject], fileName: kind + ".pdf");
         using var repository = new MemoryRepository();
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() => new PdfService(repository).ImportAsync(source));
-        if (kind is "widget" or "internal-link" or "additional-action") Assert.Contains("PDF page 1:", exception.Message);
+        if (kind == "widget") Assert.Contains("PDF page 1:", exception.Message);
         Assert.Empty(repository.Assets);
     }
 

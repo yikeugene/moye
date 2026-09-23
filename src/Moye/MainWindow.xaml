@@ -9,10 +9,14 @@
       <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
     </Style>
     <Style x:Key="ToolLabel" TargetType="TextBlock"><Setter Property="FontSize" Value="12"/><Setter Property="Margin" Value="0,5,0,0"/><Setter Property="HorizontalAlignment" Value="Center"/></Style>
+    <Style x:Key="FocusToolButton" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+      <Setter Property="Width" Value="50"/><Setter Property="Height" Value="48"/>
+      <Setter Property="Margin" Value="0,2"/><Setter Property="Padding" Value="6"/>
+    </Style>
     <Style x:Key="SidebarTab" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Width" Value="92"/><Setter Property="Margin" Value="0"/><Setter Property="Foreground" Value="#65736D"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
   </Window.Resources>
   <Grid>
-  <Grid x:Name="EditorShell" Visibility="{Binding IsEditorVisible, Converter={StaticResource BoolVisibility}}" IsEnabled="{Binding CanInteract}">
+  <Grid x:Name="EditorShell" Background="#ECEEE8" Visibility="{Binding IsEditorVisible, Converter={StaticResource BoolVisibility}}" IsEnabled="{Binding CanInteract}">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <!-- The open notebook is the top-level navigation; writing tools stay secondary. -->
     <Border x:Name="NotebookHeader" Height="76" Background="White" BorderBrush="#DDE3DC" BorderThickness="0,0,0,1" IsEnabled="{Binding CanInteract}">
@@ -59,13 +63,15 @@
               </ListBox>
             </StackPanel>
             <DockPanel Grid.Row="1" Margin="20,0,12,0">
-              <Button Content="&#xE712;" Click="MoreClick" ToolTip="Page Options" AutomationProperties.Name="Page Options" x:Name="PageOptionsButton" DockPanel.Dock="Right" FontFamily="Segoe Fluent Icons" FontSize="18"><Button.ContextMenu><ContextMenu><MenuItem Header="Duplicate Page" Click="DuplicatePageClick" /><MenuItem Header="Move Page Up" Click="MovePageUpClick" /><MenuItem Header="Move Page Down" Click="MovePageDownClick" /><MenuItem Header="Move Page to Section" SubmenuOpened="MovePageSectionMenuOpened"/><Separator/><MenuItem Header="Paper Style…" Click="PageSettingsClick" /><MenuItem Header="Delete Page (Undo Available)" Click="DeletePageClick" /></ContextMenu></Button.ContextMenu></Button>
               <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding SelectedSectionTitle}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SelectedSectionTitle}" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="{Binding SectionPageCountText}" Foreground="#65736D" FontSize="12" Margin="0,2,0,0"/></StackPanel>
             </DockPanel>
             <ListBox Grid.Row="2" x:Name="ThumbnailList" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" SelectionChanged="ThumbnailSelectionChanged"
                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" Margin="6,0" AutomationProperties.Name="Page Thumbnails">
               <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
                 <Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,4,0,14"/>
+                <Setter Property="ToolTip" Value="Right-click for page actions · Shift+F10 with keyboard"/>
+                <EventSetter Event="PreviewMouseRightButtonDown" Handler="ThumbnailRightButtonDown"/>
+                <EventSetter Event="ContextMenuOpening" Handler="PageContextMenuOpening"/>
                 <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
                   <Border x:Name="ThumbSelection" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6" Padding="8,8,8,6" Background="Transparent"><ContentPresenter/></Border>
                   <ControlTemplate.Triggers>
@@ -163,7 +169,7 @@
             <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,28"/><Setter Property="Focusable" Value="False"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><ContentPresenter/></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate><DataTemplate><StackPanel>
-              <Border Width="{Binding DisplayWidth}" Height="{Binding DisplayHeight}" Background="White" Loaded="PageHostLoaded" Unloaded="PageHostUnloaded" DataContextChanged="PageHostDataContextChanged" PreviewMouseDown="PageHostMouseDown" PreviewStylusDown="PageHostStylusDown"><Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.13" Color="#6C788E"/></Border.Effect></Border>
+              <Border Width="{Binding DisplayWidth}" Height="{Binding DisplayHeight}" Background="White" Loaded="PageHostLoaded" Unloaded="PageHostUnloaded" DataContextChanged="PageHostDataContextChanged" PreviewMouseDown="PageHostMouseDown" PreviewStylusDown="PageHostStylusDown" ContextMenuOpening="PageContextMenuOpening"><Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.13" Color="#6C788E"/></Border.Effect></Border>
               <TextBlock Text="{Binding Number, StringFormat={}—  {0}  —}" HorizontalAlignment="Center" FontSize="11" Foreground="#65736D" Margin="0,14,0,0" IsHitTestVisible="False"/>
             </StackPanel></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
@@ -174,7 +180,6 @@
             <Button x:Name="EmptySectionAddPageButton" Content="＋  Add Page" Click="AddPageClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center"/>
           </StackPanel>
 
-          <Button x:Name="ExitFocusButton" Content="Exit Focus" Click="FocusClick" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Background="#EEFFFFFF" ToolTip="Exit Focus Mode (F11 or Esc)"/>
         </Grid>
         <Border x:Name="EditorFooter" Grid.Row="2" Height="48" Background="#FAFBF8" BorderBrush="#DDE3DC" BorderThickness="0,1,0,0" IsEnabled="{Binding CanInteract}">
           <Grid Margin="12,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -198,6 +203,26 @@
         </Border>
       </Grid>
     </Grid>
+    <!-- Keep tool input outside the paper viewport's pen and touch routes. -->
+    <Border x:Name="FocusToolbar" Grid.RowSpan="2" Panel.ZIndex="20" Visibility="Collapsed"
+            HorizontalAlignment="Left" VerticalAlignment="Center" Margin="14,18" Padding="7"
+            Background="White" BorderBrush="#DDE3DC" BorderThickness="1" CornerRadius="14"
+            AutomationProperties.Name="Focus Writing Tools">
+      <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.12" Color="#445B50"/></Border.Effect>
+      <StackPanel x:Name="FocusWritingTools">
+        <Button x:Name="FocusPenButton" Tag="Pen" Style="{StaticResource FocusToolButton}" Click="ToolClick" ToolTip="Pen (B)" AutomationProperties.Name="Focus Pen"><Path Data="M16,2 L22,8 10,20 3,22 5,15 Z M5,15 L10,20 M14,4 L20,10" Style="{StaticResource ToolIcon}"/></Button>
+        <Button x:Name="FocusHighlighterButton" Tag="Highlighter" Style="{StaticResource FocusToolButton}" Click="ToolClick" ToolTip="Highlighter (H)" AutomationProperties.Name="Focus Highlighter"><Path Data="M12,3 L21,8 14,19 5,14 Z M7,15 L5,19 10,21 12,18 M3,23 L13,23 M10,6 L18,11" Style="{StaticResource ToolIcon}"/></Button>
+        <Button x:Name="FocusEraserButton" Tag="PointEraser" Style="{StaticResource FocusToolButton}" Click="EraserToolClick" ToolTip="Eraser (E); click to choose an eraser mode" AutomationProperties.Name="Focus Eraser"><Path Data="M13,3 Q14,2 15,3 L22,10 Q23,11 22,12 L12,22 7,22 2,17 Q1,16 2,15 Z M7,10 L17,17 M12,22 L23,22" Style="{StaticResource ToolIcon}"/></Button>
+        <Button x:Name="FocusLassoButton" Tag="Lasso" Style="{StaticResource FocusToolButton}" Click="ToolClick" ToolTip="Lasso (L)" AutomationProperties.Name="Focus Lasso"><Path Data="M8,20 C-1,17 0,4 12,3 C24,1 27,16 15,20 C8,23 4,21 6,17 C8,13 12,21 8,25" Style="{StaticResource ToolIcon}"/></Button>
+        <Button x:Name="FocusPenSettingsButton" Style="{StaticResource FocusToolButton}" Click="PenSettingsClick" ToolTip="Pen Settings: color and thickness" AutomationProperties.Name="Focus Pen Settings">
+          <StackPanel><Ellipse Width="18" Height="18" Fill="{Binding Fill, ElementName=CurrentColor}" Stroke="#B8C2D1" StrokeThickness="0.5"/><TextBlock Text="{Binding Text, ElementName=CurrentWidth, StringFormat={}{0} mm}" FontSize="9" HorizontalAlignment="Center" Margin="0,3,0,0"/></StackPanel>
+        </Button>
+        <Border Height="1" Background="#DDE3DC" Margin="7,6"/>
+        <Button x:Name="FocusUndoButton" Style="{StaticResource FocusToolButton}" Content="&#xE7A7;" Click="UndoClick" FontFamily="Segoe Fluent Icons" FontSize="18" IsEnabled="{Binding CanUndo}" ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Focus Undo"/>
+        <Button x:Name="FocusRedoButton" Style="{StaticResource FocusToolButton}" Content="&#xE7A6;" Click="RedoClick" FontFamily="Segoe Fluent Icons" FontSize="18" IsEnabled="{Binding CanRedo}" ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Focus Redo"/>
+        <Button x:Name="ExitFocusButton" Style="{StaticResource FocusToolButton}" Content="&#xE73F;" Click="FocusClick" FontFamily="Segoe Fluent Icons" FontSize="18" ToolTip="Exit Focus Mode (F11 or Esc)" AutomationProperties.Name="Exit Focus"/>
+      </StackPanel>
+    </Border>
     <Popup x:Name="PenSettingsPopup" PlacementTarget="{Binding ElementName=PenSettingsButton}" Placement="Bottom" VerticalOffset="10" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Closed="PenSettingsClosed">
       <Border Background="White" BorderBrush="#DDE3DC" BorderThickness="1" CornerRadius="12" Padding="20" Width="350">
         <StackPanel>
@@ -231,7 +256,7 @@
         </StackPanel>
       </Border>
     </Popup>
-    <Popup x:Name="PaperSettingsPopup" PlacementTarget="{Binding ElementName=PageOptionsButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+    <Popup x:Name="PaperSettingsPopup" PlacementTarget="{Binding ElementName=Viewport}" Placement="Center" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
       <Border Background="White" BorderBrush="#DDE3DC" BorderThickness="1" CornerRadius="12" Padding="22" Width="500">
         <StackPanel>
           <TextBlock x:Name="PaperPickerTitle" Text="Choose Paper" FontSize="20" FontWeight="SemiBold"/>

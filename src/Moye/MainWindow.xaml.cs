@@ -349,6 +349,7 @@ public partial class MainWindow : Window
                      (EraserSettingsPopup.IsOpen || _eraserPopupDismissedOnButton);
         SetTool(_eraserTool);
         _eraserPopupDismissedOnButton = false;
+        PlaceWritingPopup(EraserSettingsPopup, (Button)sender);
         EraserSettingsPopup.IsOpen = !close;
     }
     private void EraserPopupClosed(object? sender, EventArgs e)
@@ -356,9 +357,10 @@ public partial class MainWindow : Window
         // StaysOpen=False dismisses a popup before its trigger receives Click.
         // Remember that dismissal for this press so re-clicking closes it.
         var stylus = Stylus.CurrentStylusDevice;
-        var pointer = stylus is { InAir: false } ? stylus.GetPosition(EraserButton) : Mouse.GetPosition(EraserButton);
+        var trigger = EraserSettingsPopup.PlacementTarget as Button ?? EraserButton;
+        var pointer = stylus is { InAir: false } ? stylus.GetPosition(trigger) : Mouse.GetPosition(trigger);
         _eraserPopupDismissedOnButton = (Mouse.LeftButton == MouseButtonState.Pressed || stylus is { InAir: false }) &&
-            new Rect(EraserButton.RenderSize).Contains(pointer);
+            new Rect(trigger.RenderSize).Contains(pointer);
     }
     private void EraserPopupKeyDown(object sender, KeyEventArgs e)
     {
@@ -385,10 +387,19 @@ public partial class MainWindow : Window
     {
         bool open = !PenSettingsPopup.IsOpen;
         CommitEditors(); CloseSettingsPopups();
+        PlaceWritingPopup(PenSettingsPopup, (Button)sender);
         PenSettingsPopup.IsOpen = open; UpdateTool();
+    }
+    private void PlaceWritingPopup(Popup popup, Button trigger)
+    {
+        popup.PlacementTarget = trigger;
+        popup.Placement = _focusMode ? PlacementMode.Right : PlacementMode.Bottom;
+        popup.HorizontalOffset = _focusMode ? 12 : 0;
+        popup.VerticalOffset = _focusMode ? 0 : 10;
     }
     private void PageSettingsClick(object sender, RoutedEventArgs e)
     {
+        if (sender is not MenuItem { Tag: PageActionTarget target } || !ActivatePageAction(target)) return;
         ShowPaperPicker(false);
     }
     private void SetTool(InkTool tool)
@@ -426,7 +437,7 @@ public partial class MainWindow : Window
     private void UpdateTool()
     {
         if (PenButton is null) return;
-        foreach (var button in Descendants<Button>(WritingTools))
+        foreach (var button in Descendants<Button>(WritingTools).Concat(Descendants<Button>(FocusWritingTools)))
         {
             if (button.Tag is string tag && Enum.TryParse<InkTool>(tag, out var tool))
             {
@@ -458,6 +469,8 @@ public partial class MainWindow : Window
         EraserModeLabel.Text = "Eraser";
         EraserButton.ToolTip = $"{eraserMode} Eraser (E); click to choose an eraser mode";
         System.Windows.Automation.AutomationProperties.SetHelpText(EraserButton, $"Current mode: {eraserMode} Eraser. Click to choose Pixel Eraser or Stroke Eraser.");
+        FocusEraserButton.ToolTip = EraserButton.ToolTip;
+        System.Windows.Automation.AutomationProperties.SetHelpText(FocusEraserButton, System.Windows.Automation.AutomationProperties.GetHelpText(EraserButton));
         foreach (var editor in _editors.Values)
         {
             ConfigureEditor(editor);
@@ -507,10 +520,10 @@ public partial class MainWindow : Window
     private void UndoClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.Undo(); }
     private void RedoClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.Redo(); }
     private void AddPageClick(object sender, RoutedEventArgs e) => ShowPaperPicker(true);
-    private void DuplicatePageClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.DuplicatePage(); ScrollToSelected(); }
-    private void MovePageUpClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.MovePage(-1); ScrollToSelected(); }
-    private void MovePageDownClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.MovePage(1); ScrollToSelected(); }
-    private void DeletePageClick(object sender, RoutedEventArgs e) { CommitEditors(); ViewModel.DeletePage(); ScrollToSelected(); }
+    private void DuplicatePageClick(object sender, RoutedEventArgs e) => RunPageAction(sender, ViewModel.DuplicatePage);
+    private void MovePageUpClick(object sender, RoutedEventArgs e) => RunPageAction(sender, () => ViewModel.MovePage(-1));
+    private void MovePageDownClick(object sender, RoutedEventArgs e) => RunPageAction(sender, () => ViewModel.MovePage(1));
+    private void DeletePageClick(object sender, RoutedEventArgs e) => RunPageAction(sender, ViewModel.DeletePage);
     private void SyncPageTemplate()
     {
         if (TemplatePicker is null) return;
@@ -521,13 +534,16 @@ public partial class MainWindow : Window
     {
         if (ViewModel.Document is null) return;
         CommitEditors(); CloseSettingsPopups(); _addingPage = addingPage;
+        _paperActionTarget = !addingPage && ViewModel.SelectedPage is { } page
+            ? new PageActionTarget(ViewModel.Document, page.Page.SectionId, page.Page.Id) : null;
         TemplatePicker.SelectedTemplate = ViewModel.SelectedPage?.Page.Pdf is null ? ViewModel.SelectedPage?.Page.Template ?? PaperTemplate.Ruled : PaperTemplate.Ruled;
         TemplatePicker.IsEnabled = addingPage || ViewModel.SelectedPage?.Page.Pdf is null;
         ApplyPaperButton.IsEnabled = TemplatePicker.IsEnabled;
         PaperPickerTitle.Text = addingPage ? "Add a Page" : "Choose Paper";
         PaperPickerHint.Text = addingPage ? "A4 paper · Insert after the current page." : TemplatePicker.IsEnabled ? "Change this page's background. Your notes stay in place." : "PDF pages keep their original background. Add a new page to use a template.";
         ApplyPaperButton.Content = addingPage ? "Add Page" : "Apply Paper";
-        PaperSettingsPopup.PlacementTarget = Sidebar.Visibility == Visibility.Visible ? PageOptionsButton : PenSettingsButton;
+        PaperSettingsPopup.PlacementTarget = _focusMode ? FocusPenSettingsButton : Sidebar.Visibility == Visibility.Visible ? ThumbnailList : PenSettingsButton;
+        PaperSettingsPopup.Placement = _focusMode || Sidebar.Visibility == Visibility.Visible ? PlacementMode.Right : PlacementMode.Bottom;
         Dispatcher.BeginInvoke(() => PaperSettingsPopup.IsOpen = true, DispatcherPriority.Input);
     }
     private void CancelPaperClick(object sender, RoutedEventArgs e) => CloseSettingsPopups();
@@ -538,7 +554,7 @@ public partial class MainWindow : Window
         CloseSettingsPopups();
         CommitEditors();
         if (_addingPage) { ViewModel.AddPage(template); ScrollToSelected(); }
-        else ViewModel.SetTemplate(template);
+        else if (_paperActionTarget is { } target && ActivatePageAction(target)) ViewModel.SetTemplate(template);
     }
 
     private CancellationTokenSource? _documentImportCancellation;
@@ -644,7 +660,7 @@ public partial class MainWindow : Window
     private async void RetrySaveClick(object sender, RoutedEventArgs e) => await RunAsync("Retrying save…", async () => { await ViewModel.Autosave.RetryAsync(); await SavePreferencesAsync(true); });
     private void MoreClick(object sender, RoutedEventArgs e) { var button = (Button)sender; button.ContextMenu.PlacementTarget = button; button.ContextMenu.Placement = PlacementMode.Bottom; button.ContextMenu.IsOpen = true; }
     private void HelpClick(object sender, RoutedEventArgs e) => MessageBox.Show(this,
-        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nMy notebooks saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics; Page Options moves pages between sections.\nInsert (+) adds pages, PDFs and images. Page Options changes paper.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Manage pens for your everyday pens; press 1–9 to switch.\nPen Settings offers color swatches and a Thickness slider with preview.\nMore Colors opens the visual palette. Manage pens controls\nopacity, pressure and smoothing. Draw and Hold straightens lines.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nExit Focus restores tools. Esc finishes typing before leaving Focus Mode.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nExport creates a PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
+        "Write with a pen. Pan with one finger and pinch with two.\nTouch gestures pause while the pen is down.\nMy notebooks saves and returns home. Click the title to rename.\nContents organizes your notebook into sections and pages.\nUse + beside SECTIONS for each topic. Section Options renames\nor reorders topics. Right-click a page or thumbnail to duplicate,\nmove, delete or change its paper. Insert adds pages and documents.\nFit Width fills the writing area; click the zoom percentage for Actual Size.\n\nUse Manage pens for your everyday pens; press 1–9 to switch.\nPen Settings offers color swatches and a Thickness slider with preview.\nMore Colors opens the visual palette. Manage pens controls\nopacity, pressure and smoothing. Draw and Hold straightens lines.\nHold a line about 0.65 seconds, adjust its endpoint, then lift to finish.\nClick Eraser for Pixel or Stroke, size and highlighter-only erasing.\n\nType starts or resumes a text box. Use ＋ Text box or click the\npaper in Type mode for another. Formatting applies to the whole box:\nfont, 6–96 pt size, bold, italic, color and left/center/right alignment.\n• List and 1. List add plain text markers to current or selected lines.\nEnter continues a list; Enter on an empty item ends it.\nWhile typing: Ctrl+B Bold · Ctrl+I Italic · Ctrl+Enter or Esc returns to Pen.\nText keeps its own clipboard and undo. Finish typing to undo box formatting.\nBoxes grow to the page bottom, then scroll. Move overflow to a new\nbox on the next page before PDF export; pagination is manual.\n\nB Pen · H Highlighter · E Eraser · L Lasso · T Type · V Select\nCtrl+Z Undo · Ctrl+Y / Ctrl+Shift+Z Redo · Ctrl+D Duplicate\nOutside text: Ctrl+C / Ctrl+X Copy / Cut ink · Ctrl+V Paste ink or image\nSpace + mouse drag Pan · Delete Remove selection · Ctrl+S Save\nCtrl+wheel Zoom · F9 Sidebar · F11 Focus Mode\nFocus keeps floating pen tools, settings, Undo and Redo on the left.\nExit Focus restores the editor. Esc finishes typing before leaving focus.\nIn Select mode, use the top-right handle to move an object,\nand the bottom-right handle to resize it.\n\nNotes save on this device. More creates editable .moye backups.\nExport creates a PDF with flattened annotations and outlined added text.\n\nMoye · Offline Windows notebooks", "Moye User Guide");
 
     private void SidebarTabClick(object sender, RoutedEventArgs e) => ShowSidebarTab((string)((Button)sender).Tag == "Notebooks");
     private async void ShowNotebooksClick(object sender, RoutedEventArgs e)
@@ -909,7 +925,8 @@ public partial class MainWindow : Window
         }
         else if (Keyboard.Modifiers == ModifierKeys.None)
         {
-            if (Keyboard.FocusedElement is ButtonBase or ComboBox or Slider) return;
+            if (Keyboard.FocusedElement is ComboBox or Slider ||
+                Keyboard.FocusedElement is ButtonBase && !FocusWritingTools.IsKeyboardFocusWithin) return;
             if (e.Key == Key.Space) { BeginTemporaryPan(); e.Handled = true; return; }
             int index = e.Key >= Key.D1 && e.Key <= Key.D9 ? e.Key - Key.D1 : e.Key >= Key.NumPad1 && e.Key <= Key.NumPad9 ? e.Key - Key.NumPad1 : -1;
             if (index >= 0)

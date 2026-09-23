@@ -284,10 +284,11 @@ public sealed class PdfService(INotebookRepository repository) : IPdfService
             if (subtype is not ("/Text" or "/FreeText" or "/Square" or "/Circle" or "/Highlight" or "/Underline"
                 or "/StrikeOut" or "/Squiggly" or "/Ink" or "/Stamp" or "/Line" or "/Polygon" or "/PolyLine" or "/Caret" or "/Popup" or "/Link"))
                 throw new InvalidDataException("The PDF contains unsupported interactive annotations. Flatten its annotations before importing.");
-            var action = ReadPdfEntry(annotation!, "/A");
-            if (ReadPdfEntry(annotation!, "/Dest") is not null || ReadPdfEntry(annotation!, "/AA") is not null ||
-                (action is not null && (action is not PdfDictionary actionDictionary || actionDictionary.Elements.GetName("/S") != "/URI")))
-                throw new InvalidDataException("The PDF contains annotations that are interactive or reference other pages. Flatten them before importing to preserve their content when pages are reordered.");
+            // A destination or action does not make the visible annotation
+            // unreadable. Strip its behavior only in this in-memory document
+            // before export copies a page; the source file and stored PDF bytes
+            // remain unchanged. Keep the appearance, contents and URI links.
+            PdfAnnotationActions.MakeStatic(annotation!);
         }
     }
 

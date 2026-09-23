@@ -4,7 +4,7 @@
 
 Moye should support a complete university workflow: write during a lecture, annotate course material, organize knowledge, and revisit it without losing time or notes. This roadmap preserves all 41 requested feature areas. It is a development plan, not a claim that every listed feature is available.
 
-This status reflects **Moye 1.9.0**, reviewed on **2026-09-22**. Version 1.9.0 adds the refreshed workspace, local Office document import and PDF compatibility fixes. Version 1.8.0 adds visual color selection, live stroke-thickness previews and touch-navigation scheduling/inertia, while retaining notebook sections and the SQLite startup repair from 1.7.0. The EXE installer continues to create desktop and Start menu shortcuts automatically. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
+This status reflects **Moye 1.10.0**, reviewed on **2026-09-23**. Version 1.10.0 adds floating focus tools, page context menus and PDF navigation annotation import fixes. Version 1.9.0 adds the refreshed workspace, local Office document import and PDF compatibility fixes. Version 1.8.0 adds visual color selection, live stroke-thickness previews and touch-navigation scheduling/inertia, while retaining notebook sections and the SQLite startup repair from 1.7.0. The EXE installer continues to create desktop and Start menu shortcuts automatically. Checked items describe implemented behavior, including the first writing-workflow milestone below; unchecked items remain work to complete. Implementation and automated coverage do not establish successful physical pen or desktop interaction.
 
 Version 1.6.0 adds an explicit Type action, contextual text controls and whole-box formatting. Basic live desktop typing and Chinese IME candidate selection have been checked. Its scope and remaining acceptance work are recorded in area 24; publication does not mark those outstanding checks complete.
 
@@ -172,6 +172,7 @@ P2 changes that introduce new persistent fields or document modes need a documen
 **Status: Partial. Priority: P0 for usable writing space; P1 for refinements.**
 
 - [x] Sidebar toggle and fullscreen focus mode with the system window frame, writing toolbar and notebook title hidden; an exit control restores editing chrome and save failures remain accessible.
+- Version 1.10.0 adds a floating focus toolbar for writing tools, color/width, undo/redo and exit. Page management also moves to each thumbnail/paper's right-click menu. Device touch and pen acceptance remains outstanding.
 - [ ] Add independent visibility preferences for the writing toolbar, notebook title and other chrome outside the combined focus mode.
 - [ ] Add temporary/hover tool access suitable for both pen and keyboard use.
 
@@ -247,7 +248,8 @@ P2 changes that introduce new persistent fields or document modes need a documen
 - Implemented in **1.9.0**: append locally converted DOCX/PPTX/PPSX/ODT/ODP pages through **Import Document…**, with **Cancel Import**/Esc and a two-minute conversion timeout. Imported Word text and slide objects are fixed backgrounds; animations, video playback and internal jumps are omitted while ordinary URI links are retained. Unsupported encryption, macros and linked external resources produce an error. An existing PowerPoint session may need to be closed before conversion.
 - [ ] Complete representative Office/LibreOffice layout and conversion acceptance across supported formats and installed application versions. Converter availability and installed fonts affect the result; this does not add editable Word or presentation documents.
 - [ ] Add selected-page/range import and creation of a new notebook directly from a PDF.
-- [ ] Keep clear validation for unsupported files. Encrypted PDFs, interactive forms, signatures and internal/cross-page annotation actions are currently unsupported.
+- Implemented in **1.10.0**: import supported annotations with internal destinations or interactive actions as static annotations. Original PDF bytes remain in the library and backups; exported copies disable these actions while retaining annotation appearances and ordinary URI links, including after page reordering or duplication.
+- [ ] Keep clear validation for unsupported files. Encrypted PDFs, interactive forms, signatures and unsupported interactive annotation types remain unsupported.
 
 ### 20. PDF Annotation
 

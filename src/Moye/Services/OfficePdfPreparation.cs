@@ -1,6 +1,5 @@
 using System.IO;
 using PdfSharp.Pdf;
-using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
 
 namespace Moye.Services;
@@ -35,16 +34,7 @@ public static class OfficePdfPreparation
                 cancellationToken.ThrowIfCancellationRequested();
                 var annotation = annotations.Elements.GetDictionary(index);
                 if (annotation is null) continue; // The normal PDF validator reports malformed annotations.
-                changed |= annotation.Elements.Remove("/Dest");
-                changed |= annotation.Elements.Remove("/AA");
-                var action = Resolve(annotation.Elements["/A"]);
-                if (action is PdfDictionary dictionary && dictionary.Elements.GetName("/S") == "/URI")
-                {
-                    // A safe first action must not retain a subsequent page jump,
-                    // script or other action through a chained /Next dictionary.
-                    changed |= dictionary.Elements.Remove("/Next");
-                }
-                else changed |= annotation.Elements.Remove("/A");
+                changed |= PdfAnnotationActions.MakeStatic(annotation);
             }
         }
         cancellationToken.ThrowIfCancellationRequested();
@@ -73,5 +63,4 @@ public static class OfficePdfPreparation
         }
     }
 
-    private static PdfItem? Resolve(PdfItem? value) => value is PdfReference reference ? reference.Value : value;
 }

@@ -176,25 +176,10 @@ internal static class Program
 
             VerifyTypingCommandsAndLayout(window, content, repository, output, reports);
             VerifySectionNavigationLayout(window, content, repository, output, reports);
+            VerifyPageMenus(window);
 
-            // Exercise the compiled focus chrome without changing WindowStyle or
-            // creating a native window. Save-error UI remains separately visible.
             var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
-            typeof(MainWindow).GetField("_focusMode", flags)!.SetValue(window, true);
-            typeof(MainWindow).GetMethod("ApplyFocusChrome", flags)!.Invoke(window, null);
-            ((FrameworkElement)window.FindName("Sidebar")).Visibility = Visibility.Collapsed;
-            ((ColumnDefinition)window.FindName("SidebarColumn")).Width = new GridLength(0);
-            foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
-            {
-                var fileName = $"ui-preview-focus-{width}.png";
-                SaveImage(output, fileName, RenderElement(content, width, height));
-                VerifyDetached(content, window);
-                reports.Add(MeasureButtons(content, width, height, fileName, "focus", "ExitFocusButton"));
-                if (((FrameworkElement)window.FindName("Viewport")).ActualHeight < height - 1)
-                    throw new InvalidOperationException("Focus mode must reclaim the header, tools and footer space.");
-            }
-            typeof(MainWindow).GetField("_focusMode", flags)!.SetValue(window, false);
-            typeof(MainWindow).GetMethod("ApplyFocusChrome", flags)!.Invoke(window, null);
+            VerifyFocusTools(window, content, repository, output, reports);
 
             var presetFixture = WritingPreferences.CreateDefault();
             presetFixture.Presets[0].Width = .5; presetFixture.Presets[0].Opacity = .65;
@@ -634,6 +619,188 @@ internal static class Program
         Call("ApplyPreset", defaults.Presets[0], false);
     }
 
+    private static void VerifyPageMenus(MainWindow window)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var create = typeof(MainWindow).GetMethod("CreatePageContextMenu", flags)!;
+        var selected = window.ViewModel.SelectedPage;
+        var pages = window.ViewModel.Pages;
+        if (pages.Count < 3) throw new InvalidOperationException("The page-menu fixture needs first, middle and final pages.");
+        for (var index = 0; index < pages.Count; index++)
+        {
+            var page = pages[index];
+            var menu = (ContextMenu?)create.Invoke(window, [page]);
+            if (menu is null || menu.IsOpen || window.ViewModel.SelectedPage != selected)
+                throw new InvalidOperationException("Creating a menu for another page must not change selection or open a native popup.");
+            var items = menu.Items.OfType<MenuItem>().ToArray();
+            if (!Equals(items[0].Header, $"Page {page.Number}") || items[0].IsEnabled)
+                throw new InvalidOperationException("The page menu must explicitly identify which page its actions will affect.");
+            MenuItem Action(string header) => items.Single(item => Equals(item.Header, header));
+            if (Action("Move Page Up").IsEnabled != (index > 0) ||
+                Action("Move Page Down").IsEnabled != (index < pages.Count - 1) ||
+                !Action("Duplicate Page").IsEnabled || !Action("Delete Page (Undo Available)").IsEnabled ||
+                !Action("Paper Style…").IsEnabled)
+                throw new InvalidOperationException("Page menu actions must use the clicked page's position, including section boundaries.");
+            if (menu.ItemContainerStyle is not null ||
+                menu.Items.OfType<Separator>().Any(separator => separator.ReadLocalValue(FrameworkElement.StyleProperty) != DependencyProperty.UnsetValue))
+                throw new InvalidOperationException("Mixed page-menu containers must not apply a MenuItem style to separators.");
+            if (items.Skip(1).Any(item => item.MinHeight < 44))
+                throw new InvalidOperationException("Page menu actions must retain 44 DIP minimum touch targets.");
+            // Materialize the real mixed containers without IsOpen or a native
+            // popup. Container-style type errors otherwise occur only on opening.
+            menu.Visibility = Visibility.Visible;
+            menu.ApplyTemplate();
+            menu.Measure(new Size(360, double.PositiveInfinity));
+            menu.Arrange(new Rect(0, 0, 360, menu.DesiredSize.Height));
+            menu.UpdateLayout();
+            if (menu.IsOpen || PresentationSource.FromVisual(menu) is not null ||
+                Descendants<MenuItem>(menu).Count() < items.Length || items.Skip(1).Any(item => item.ActualHeight < 43.99))
+                throw new InvalidOperationException("Detached page-menu layout must realize every action with its minimum touch height without a native popup.");
+            VerifyDetached(menu, window);
+        }
+    }
+
+    private static void VerifyFocusTools(MainWindow window, FrameworkElement content, FixtureRepository repository,
+        string output, List<PreviewReport> reports)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        object? Call(string name, params object[] args) => typeof(MainWindow).GetMethod(name, flags)!.Invoke(window, args);
+        void Set(string name, object value) => typeof(MainWindow).GetField(name, flags)!.SetValue(window, value);
+        var toolbar = (FrameworkElement)window.FindName("FocusToolbar");
+        var viewport = (FrameworkElement)window.FindName("Viewport");
+        var sidebar = (FrameworkElement)window.FindName("Sidebar");
+        var sidebarColumn = (ColumnDefinition)window.FindName("SidebarColumn");
+        var sidebarVisibility = sidebar.Visibility;
+        var sidebarWidth = sidebarColumn.Width;
+        if (toolbar.Visibility != Visibility.Collapsed)
+            throw new InvalidOperationException("The floating writing tools must remain hidden until focus mode is entered.");
+        for (DependencyObject? ancestor = toolbar; ancestor is not null; ancestor = VisualTreeHelper.GetParent(ancestor))
+            if (ancestor == viewport)
+                throw new InvalidOperationException("Floating tools must be outside the viewport so their touch events cannot pan the paper.");
+
+        // Exercise the compiled focus chrome without changing WindowStyle or
+        // creating a native window. The registered page is an isolated snapshot.
+        var editors = (Dictionary<Border, PageEditor>)typeof(MainWindow).GetField("_editors", flags)!.GetValue(window)!;
+        var sampleEditor = CreateEditor(window.ViewModel.SelectedPage!, repository);
+        var sampleHost = new Border { Child = sampleEditor };
+        editors.Add(sampleHost, sampleEditor);
+        try
+        {
+            Set("_focusMode", true); Call("ApplyFocusChrome");
+            sidebar.Visibility = Visibility.Collapsed; sidebarColumn.Width = new GridLength(0);
+            var focusButtons = new[] { "FocusPenButton", "FocusHighlighterButton", "FocusEraserButton", "FocusLassoButton",
+                "FocusPenSettingsButton", "FocusUndoButton", "FocusRedoButton", "ExitFocusButton" };
+            foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })
+            {
+                var fileName = $"ui-preview-focus-{width}.png";
+                SaveImage(output, fileName, RenderElement(content, width, height));
+                VerifyDetached(content, window);
+                reports.Add(MeasureButtons(content, width, height, fileName, "focus", focusButtons));
+                if (viewport.ActualHeight < height - 1)
+                    throw new InvalidOperationException("Focus mode must reclaim the header, tools and footer space.");
+                var toolbarBounds = toolbar.TransformToAncestor(content).TransformBounds(new Rect(toolbar.RenderSize));
+                var viewportBounds = viewport.TransformToAncestor(content).TransformBounds(new Rect(viewport.RenderSize));
+                if (toolbarBounds.IntersectsWith(viewportBounds))
+                    throw new InvalidOperationException("Focus tools must leave the writing viewport clear, including pages fitted to its width.");
+                foreach (var name in focusButtons)
+                {
+                    var button = (Button)window.FindName(name);
+                    var bounds = button.TransformToAncestor(content).TransformBounds(new Rect(button.RenderSize));
+                    var point = new Point(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2);
+                    DependencyObject? hit = null;
+                    // Raw visual-layer hit testing includes old visuals under
+                    // collapsed overlays. A detached tree has IsVisible=false
+                    // everywhere, so filter the declared input visibility instead.
+                    VisualTreeHelper.HitTest(content,
+                        visual => visual is UIElement element &&
+                            (element.Visibility != Visibility.Visible || !element.IsHitTestVisible)
+                                ? HitTestFilterBehavior.ContinueSkipSelfAndChildren : HitTestFilterBehavior.Continue,
+                        result => { hit = result.VisualHit; return HitTestResultBehavior.Stop; },
+                        new PointHitTestParameters(point));
+                    var hitDescription = hit is FrameworkElement elementHit
+                        ? $"{elementHit.GetType().Name} ({elementHit.Name}), visibility={elementHit.Visibility}, enabled={elementHit.IsEnabled}"
+                        : hit?.GetType().Name ?? "none";
+                    while (hit is not null && hit != button) hit = VisualTreeHelper.GetParent(hit);
+                    if (hit != button)
+                        throw new InvalidOperationException($"The floating {name} must remain above the paper and receive its own pointer hit. At {point}, observed {hitDescription}; button bounds={bounds}.");
+                }
+            }
+
+            void AssertTool(InkTool tool, InkCanvasEditingMode mode, bool highlighter = false)
+            {
+                if (sampleEditor.InkCanvas.EditingMode != mode ||
+                    mode == InkCanvasEditingMode.Ink && sampleEditor.InkCanvas.DefaultDrawingAttributes.IsHighlighter != highlighter)
+                    throw new InvalidOperationException($"Switching to {tool} from focus tools must update the page editor's actual ink mode.");
+                var selectedTag = tool == InkTool.StrokeEraser ? nameof(InkTool.PointEraser) : tool.ToString();
+                var selectedColor = ((SolidColorBrush)window.FindResource("AccentSoft")).Color;
+                foreach (var panelName in new[] { "WritingTools", "FocusWritingTools" })
+                {
+                    var selectedButtons = Descendants<Button>((DependencyObject)window.FindName(panelName))
+                        .Where(button => button.Tag is string tag && Enum.TryParse<InkTool>(tag, out _) &&
+                            button.Background is SolidColorBrush brush && brush.Color == selectedColor).ToList();
+                    if (selectedButtons.Count != 1 || !Equals(selectedButtons[0].Tag, selectedTag))
+                        throw new InvalidOperationException($"The main and floating tools must both indicate {tool} as the only active tool.");
+                }
+            }
+            void Click(string name)
+            {
+                var button = (Button)window.FindName(name);
+                button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent, button));
+            }
+            Click("FocusPenButton"); AssertTool(InkTool.Pen, InkCanvasEditingMode.Ink);
+            Set("_color", Colors.Indigo); Set("_width", 4.75); Call("UpdateTool");
+            Click("FocusHighlighterButton"); AssertTool(InkTool.Highlighter, InkCanvasEditingMode.Ink, true);
+            Click("FocusLassoButton"); AssertTool(InkTool.Lasso, InkCanvasEditingMode.Select);
+            // Eraser button activation opens a native popup. Check its shared
+            // selection route without opening that popup in a detached renderer.
+            Call("SetTool", InkTool.PointEraser); AssertTool(InkTool.PointEraser, InkCanvasEditingMode.EraseByPoint);
+            Call("SetTool", InkTool.StrokeEraser); AssertTool(InkTool.StrokeEraser, InkCanvasEditingMode.EraseByStroke);
+            Click("FocusPenButton"); AssertTool(InkTool.Pen, InkCanvasEditingMode.Ink);
+            var attributes = sampleEditor.InkCanvas.DefaultDrawingAttributes;
+            if (attributes.Color != Colors.Indigo || Math.Abs(attributes.Width - 4.75) > .001)
+                throw new InvalidOperationException("Switching focus tools must preserve the last pen's edited color and width.");
+            foreach (var (popupName, triggerName) in new[]
+            {
+                ("PenSettingsPopup", "FocusPenSettingsButton"), ("EraserSettingsPopup", "FocusEraserButton")
+            })
+            {
+                var popup = (Popup)window.FindName(popupName);
+                var trigger = (Button)window.FindName(triggerName);
+                Call("PlaceWritingPopup", popup, trigger);
+                if (popup.IsOpen || popup.PlacementTarget != trigger || popup.Placement != PlacementMode.Right)
+                    throw new InvalidOperationException("Focus settings must anchor beside their visible trigger without using the hidden top toolbar.");
+            }
+        }
+        finally
+        {
+            editors.Remove(sampleHost);
+            Set("_focusMode", false); Call("ApplyFocusChrome");
+            sidebar.Visibility = sidebarVisibility; sidebarColumn.Width = sidebarWidth;
+        }
+        Arrange(content, 1024, 700);
+        if (toolbar.Visibility != Visibility.Collapsed ||
+            viewport.Margin != new Thickness(0) ||
+            ((FrameworkElement)window.FindName("NotebookHeader")).Visibility != Visibility.Visible ||
+            ((FrameworkElement)window.FindName("WritingHeader")).Visibility != Visibility.Visible ||
+            ((FrameworkElement)window.FindName("EditorFooter")).Visibility != Visibility.Visible)
+            throw new InvalidOperationException("Leaving focus mode must hide floating tools and restore the notebook chrome.");
+        foreach (var (popupName, triggerName) in new[]
+        {
+            ("PenSettingsPopup", "PenSettingsButton"), ("EraserSettingsPopup", "EraserButton")
+        })
+        {
+            var popup = (Popup)window.FindName(popupName);
+            var trigger = (Button)window.FindName(triggerName);
+            Call("PlaceWritingPopup", popup, trigger);
+            if (popup.IsOpen || popup.PlacementTarget != trigger || popup.Placement != PlacementMode.Bottom)
+                throw new InvalidOperationException("After leaving focus mode, writing settings must anchor below the restored toolbar.");
+        }
+        var restoreImage = "ui-preview-focus-restored-1024.png";
+        SaveImage(output, restoreImage, RenderElement(content, 1024, 700));
+        reports.Add(MeasureButtons(content, 1024, 700, restoreImage, "focus-restored", "PenButton", "PenSettingsButton", "FitWidthButton"));
+        VerifyDetached(content, window);
+    }
+
     private static void VerifyTypingCommandsAndLayout(MainWindow window, FrameworkElement content, FixtureRepository repository,
         string output, List<PreviewReport> reports)
     {
@@ -736,7 +903,7 @@ internal static class Program
             var fileName = $"ui-preview-sections-{width}.png";
             SaveImage(output, fileName, RenderElement(content, width, height));
             VerifyDetached(content, window);
-            reports.Add(MeasureButtons(content, width, height, fileName, "sections", "AddSectionButton", "SectionOptionsButton", "PageOptionsButton"));
+            reports.Add(MeasureButtons(content, width, height, fileName, "sections", "AddSectionButton", "SectionOptionsButton"));
         }
         window.ViewModel.SelectedSection = window.ViewModel.Sections.First(s => s.Id == "empty-topic");
         foreach (var (width, height) in new[] { (1400, 960), (1024, 700) })

@@ -277,6 +277,9 @@ public partial class MainWindow
         NotebookHeader.Visibility = _focusMode ? Visibility.Collapsed : Visibility.Visible;
         WritingHeader.Visibility = _focusMode ? Visibility.Collapsed : Visibility.Visible;
         EditorFooter.Visibility = _focusMode && !ViewModel.HasSaveError ? Visibility.Collapsed : Visibility.Visible;
-        ExitFocusButton.Visibility = _focusMode ? Visibility.Visible : Visibility.Collapsed;
+        FocusToolbar.Visibility = _focusMode ? Visibility.Visible : Visibility.Collapsed;
+        // Reserve a slim rail so Fit Width and horizontal panning cannot put
+        // handwriting underneath the floating buttons.
+        Viewport.Margin = _focusMode ? new Thickness(92, 0, 0, 0) : new Thickness(0);
     }
 }

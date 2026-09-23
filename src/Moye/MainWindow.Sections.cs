@@ -76,18 +76,19 @@ public partial class MainWindow
 
     private void MovePageSectionMenuOpened(object sender, RoutedEventArgs e)
     {
-        if (sender is not MenuItem menu || !ReferenceEquals(e.OriginalSource, menu)) return;
+        if (sender is not MenuItem { Tag: PageActionTarget target } menu || !ReferenceEquals(e.OriginalSource, menu)) return;
         menu.Items.Clear();
+        if (ResolvePageActionTarget(ViewModel, target) is not { } page) return;
         foreach (var section in ViewModel.Sections)
         {
             // Header as a TextBlock keeps underscores in user titles literal.
             var item = new MenuItem
             {
                 Header = new TextBlock { Text = section.Title, MaxWidth = 280, TextTrimming = TextTrimming.CharacterEllipsis },
-                ToolTip = section.Title, Tag = section.Id,
-                IsEnabled = ViewModel.SelectedPage is not null && section.Id != ViewModel.SelectedSection?.Id
+                ToolTip = section.Title, Tag = target,
+                IsEnabled = section.Id != page.Page.SectionId
             };
-            item.Click += (_, _) => ChangeSectionView(() => ViewModel.MovePageToSection((string)item.Tag));
+            item.Click += (_, _) => RunPageAction(item, () => ChangeSectionView(() => ViewModel.MovePageToSection(section.Id)));
             menu.Items.Add(item);
         }
     }
