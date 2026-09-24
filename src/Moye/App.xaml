@@ -242,9 +242,168 @@
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
     </Style>
+    <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
+      <Setter Property="Margin" Value="10,5"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="IsHitTestVisible" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Separator">
+            <Border Height="1" Background="{StaticResource Stroke}" SnapsToDevicePixels="True"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style TargetType="MenuItem">
+      <Setter Property="FontFamily" Value="Segoe UI, Microsoft JhengHei UI"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="Padding" Value="11,7"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="ItemsPanel">
+        <Setter.Value><ItemsPanelTemplate><StackPanel/></ItemsPanelTemplate></Setter.Value>
+      </Setter>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="MenuItem">
+            <Grid>
+              <Border x:Name="MenuItemChrome" Background="{TemplateBinding Background}" CornerRadius="8"
+                      BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                      Padding="{TemplateBinding Padding}">
+                <Grid VerticalAlignment="Center">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="MenuGlyph"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="MenuGesture"/>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="MenuArrow"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid x:Name="GlyphSlot" Width="18" Height="20" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <ContentPresenter x:Name="MenuIcon" ContentSource="Icon" HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                    <Path x:Name="Checkmark" Data="M1,5 L5,9 L13,1" Width="12" Height="9" Stretch="Uniform"
+                          Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8" StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Grid>
+                  <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="Center"/>
+                  <TextBlock x:Name="GestureText" Grid.Column="2" Text="{TemplateBinding InputGestureText}"
+                             FontSize="12" FontWeight="Normal" Foreground="{StaticResource MutedInk}"
+                             Margin="24,0,0,0" VerticalAlignment="Center"/>
+                  <Path x:Name="SubmenuArrow" Grid.Column="3" Data="M1,1 L5,5 L1,9" Width="5" Height="9"
+                        Stretch="Uniform" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
+                        StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                        Margin="16,0,1,0" Visibility="Collapsed" VerticalAlignment="Center"/>
+                </Grid>
+              </Border>
+              <Popup x:Name="PART_Popup" Placement="Right" PlacementTarget="{Binding ElementName=MenuItemChrome}"
+                     HorizontalOffset="-4" VerticalOffset="-6" AllowsTransparency="True" Focusable="False"
+                     IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                     PopupAnimation="None">
+                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                        CornerRadius="12" Padding="6" Margin="6" MinWidth="200"
+                        MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}">
+                  <Border.Effect><DropShadowEffect Color="#24332F" BlurRadius="12" ShadowDepth="2" Opacity="0.13"/></Border.Effect>
+                  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                CanContentScroll="True" PanningMode="VerticalOnly" Focusable="False">
+                    <ItemsPresenter x:Name="ItemsPresenter" Grid.IsSharedSizeScope="True"
+                                    KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <MultiTrigger>
+                <MultiTrigger.Conditions>
+                  <Condition Property="Icon" Value="{x:Null}"/>
+                  <Condition Property="IsCheckable" Value="False"/>
+                  <Condition Property="IsChecked" Value="False"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="GlyphSlot" Property="Visibility" Value="Collapsed"/>
+              </MultiTrigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Checkmark" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="MenuIcon" Property="Visibility" Value="Collapsed"/>
+              </Trigger>
+              <Trigger Property="InputGestureText" Value="">
+                <Setter TargetName="GestureText" Property="Visibility" Value="Collapsed"/>
+              </Trigger>
+              <Trigger Property="HasItems" Value="True">
+                <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible"/>
+              </Trigger>
+              <Trigger Property="Role" Value="TopLevelHeader">
+                <Setter TargetName="PART_Popup" Property="Placement" Value="Bottom"/>
+                <Setter TargetName="PART_Popup" Property="HorizontalOffset" Value="-6"/>
+                <Setter TargetName="PART_Popup" Property="VerticalOffset" Value="-4"/>
+                <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Collapsed"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsHighlighted" Value="True">
+          <Setter Property="Background" Value="{StaticResource AccentSoft}"/>
+        </Trigger>
+        <Trigger Property="IsSubmenuOpen" Value="True">
+          <Setter Property="Background" Value="{StaticResource AccentSoft}"/>
+        </Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True">
+          <Setter Property="Background" Value="{StaticResource AccentSoft}"/>
+          <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Foreground" Value="{StaticResource MutedInk}"/>
+          <Setter Property="Background" Value="Transparent"/>
+          <Setter Property="BorderBrush" Value="Transparent"/>
+          <Setter Property="Opacity" Value="0.5"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="ContextMenuHeading" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+      <Setter Property="IsEnabled" Value="False"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="IsTabStop" Value="False"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+      <Setter Property="MinHeight" Value="30"/>
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource MutedInk}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="MenuItem">
+            <Border Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="1"/></Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="DangerMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+      <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+      <Style.Triggers>
+        <MultiTrigger>
+          <MultiTrigger.Conditions><Condition Property="IsHighlighted" Value="True"/><Condition Property="IsEnabled" Value="True"/></MultiTrigger.Conditions>
+          <Setter Property="Background" Value="#F8EBE8"/>
+        </MultiTrigger>
+        <MultiTrigger>
+          <MultiTrigger.Conditions><Condition Property="IsKeyboardFocused" Value="True"/><Condition Property="IsEnabled" Value="True"/></MultiTrigger.Conditions>
+          <Setter Property="Background" Value="#F8EBE8"/>
+          <Setter Property="BorderBrush" Value="{StaticResource Danger}"/>
+        </MultiTrigger>
+      </Style.Triggers>
     </Style>
     <Style TargetType="ContextMenu">
       <Setter Property="FontFamily" Value="Segoe UI, Microsoft JhengHei UI"/>
@@ -252,7 +411,30 @@
       <Setter Property="Foreground" Value="{StaticResource Ink}"/>
       <Setter Property="Background" Value="{StaticResource Surface}"/>
       <Setter Property="BorderBrush" Value="{StaticResource Stroke}"/>
-      <Setter Property="Padding" Value="5"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="6"/>
+      <Setter Property="MinWidth" Value="212"/>
+      <Setter Property="HasDropShadow" Value="False"/>
+      <Setter Property="MaxHeight" Value="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}"/>
+      <Setter Property="ItemsPanel">
+        <Setter.Value><ItemsPanelTemplate><StackPanel/></ItemsPanelTemplate></Setter.Value>
+      </Setter>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ContextMenu">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
+                    CornerRadius="12" Margin="6">
+              <Border.Effect><DropShadowEffect Color="#24332F" BlurRadius="12" ShadowDepth="2" Opacity="0.13"/></Border.Effect>
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                            CanContentScroll="True" PanningMode="VerticalOnly" Focusable="False">
+                <ItemsPresenter Grid.IsSharedSizeScope="True" KeyboardNavigation.TabNavigation="Cycle"
+                                KeyboardNavigation.DirectionalNavigation="Cycle"/>
+              </ScrollViewer>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
     <Style TargetType="ToolTip">
       <Setter Property="FontFamily" Value="Segoe UI, Microsoft JhengHei UI"/>

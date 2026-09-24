@@ -633,19 +633,21 @@ internal static class Program
             if (menu is null || menu.IsOpen || window.ViewModel.SelectedPage != selected)
                 throw new InvalidOperationException("Creating a menu for another page must not change selection or open a native popup.");
             var items = menu.Items.OfType<MenuItem>().ToArray();
-            if (!Equals(items[0].Header, $"Page {page.Number}") || items[0].IsEnabled)
+            if (items[0].Header is not TextBlock heading || heading.Text != $"Page {page.Number}" ||
+                items[0].IsEnabled || items[0].Focusable || items[0].IsTabStop)
                 throw new InvalidOperationException("The page menu must explicitly identify which page its actions will affect.");
             MenuItem Action(string header) => items.Single(item => Equals(item.Header, header));
             if (Action("Move Page Up").IsEnabled != (index > 0) ||
                 Action("Move Page Down").IsEnabled != (index < pages.Count - 1) ||
-                !Action("Duplicate Page").IsEnabled || !Action("Delete Page (Undo Available)").IsEnabled ||
+                !Action("Duplicate Page").IsEnabled || !Action("Delete Page").IsEnabled ||
                 !Action("Paper Style…").IsEnabled)
                 throw new InvalidOperationException("Page menu actions must use the clicked page's position, including section boundaries.");
+            if (Action("Delete Page").ToolTip is not string deleteHint || !deleteHint.Contains("Undo", StringComparison.Ordinal) ||
+                items.Skip(1).Any(item => item.Icon is not TextBlock { Text.Length: > 0 }))
+                throw new InvalidOperationException("Page menu actions must retain their icons and explain that page deletion can be undone.");
             if (menu.ItemContainerStyle is not null ||
                 menu.Items.OfType<Separator>().Any(separator => separator.ReadLocalValue(FrameworkElement.StyleProperty) != DependencyProperty.UnsetValue))
                 throw new InvalidOperationException("Mixed page-menu containers must not apply a MenuItem style to separators.");
-            if (items.Skip(1).Any(item => item.MinHeight < 44))
-                throw new InvalidOperationException("Page menu actions must retain 44 DIP minimum touch targets.");
             // Materialize the real mixed containers without IsOpen or a native
             // popup. Container-style type errors otherwise occur only on opening.
             menu.Visibility = Visibility.Visible;
@@ -653,6 +655,8 @@ internal static class Program
             menu.Measure(new Size(360, double.PositiveInfinity));
             menu.Arrange(new Rect(0, 0, 360, menu.DesiredSize.Height));
             menu.UpdateLayout();
+            if (items.Skip(1).Any(item => item.MinHeight < 44))
+                throw new InvalidOperationException("Page menu actions must inherit 44 DIP minimum touch targets after layout.");
             if (menu.IsOpen || PresentationSource.FromVisual(menu) is not null ||
                 Descendants<MenuItem>(menu).Count() < items.Length || items.Skip(1).Any(item => item.ActualHeight < 43.99))
                 throw new InvalidOperationException("Detached page-menu layout must realize every action with its minimum touch height without a native popup.");

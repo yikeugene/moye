@@ -1,14 +1,14 @@
 # Moye user guide
 
-This guide describes the English interface in Moye 1.11.0 for Windows 11 x64.
+This guide describes the English interface in Moye 1.12.0 for Windows 11 x64.
 
 Version 1.6.0 adds the **Type** button and text-formatting workflow described below.
 
-**Before upgrading:** create a `.moye` backup using your current version and keep it separately. Moye 1.11.0 retains the schema 2 libraries and format 2 backups used by 1.7.0. Upgrading from 1.6.2 or earlier migrates the library; those older versions cannot reopen it or new backups. Uninstalling does not reverse this migration.
+**Before upgrading:** create a `.moye` backup using your current version and keep it separately. Moye 1.12.0 retains the schema 2 libraries and format 2 backups used by 1.7.0. Upgrading from 1.6.2 or earlier migrates the library; those older versions cannot reopen it or new backups. Uninstalling does not reverse this migration.
 
 ## Install, update and uninstall
 
-Download `Moye-1.11.0-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
+Download `Moye-1.12.0-Setup-win-x64.exe` from the GitHub Release and run it. Setup installs Moye for your Windows account and automatically creates desktop and Start menu shortcuts. No administrator password or separate .NET runtime installation is required. The default application folder is `%LOCALAPPDATA%\Programs\Moye`.
 
 Open the **Moye** desktop shortcut after installation. When updating, close the app and run the newer installer. Existing notes stay in `%LOCALAPPDATA%\Moye`; the installer does not move or replace them. If you previously used a portable ZIP with the default library, the installed app uses that same library. A custom `--data-dir` library still needs its custom launch argument.
 
@@ -16,7 +16,7 @@ Remove Moye through **Windows Settings → Apps → Installed apps → Moye → 
 
 ## Notebooks, sections and pages
 
-The **1.9.0 interface** uses a warm neutral workspace with forest green controls, clearer notebook covers and visible keyboard focus. Version 1.11.0 refines buttons, pen badges and focus indicators. The navigation names below describe 1.11.0; version 1.8.0 uses **All Notes**, **Presets…** and **Create a Notebook** for the corresponding actions.
+The **1.9.0 interface** uses a warm neutral workspace with forest green controls, clearer notebook covers and visible keyboard focus. Version 1.11.0 refines buttons, pen badges and focus indicators. Version 1.12.0 adds redesigned context menus and section actions on right-click or Shift+F10. The navigation names below describe 1.12.0; version 1.8.0 uses **All Notes**, **Presets…** and **Create a Notebook** for the corresponding actions.
 
 Open `Moye.exe` to see **Your notebooks**. Moye always starts on this home screen and waits for you to choose a notebook. An empty library shows **Create your first notebook**; it does not create a notebook automatically. Notebook cards show the title, category and page count, with the most recently edited notebooks first.
 
@@ -47,7 +47,7 @@ Use one notebook per course, such as **Mathematics**, then create a section for 
 
 In **Contents**, click **＋** beside **SECTIONS** to name a section. It starts with one page using your current paper style (or Ruled when the current page is a PDF). Select a section to show its pages; page numbers start at 1 within each section. Returning to a section recalls its last selected page during the current editing session.
 
-Use **Section Options (⋯)** to rename or move the selected section up/down. **Delete Section…** asks for confirmation and removes its pages; notebook Undo can restore them while the notebook stays open. Keep at least one section. Right-click a page and choose **Move Page to Section** to organize existing pages; the editor follows the moved page. An empty source section remains available, with **Add Page** ready to create its next page.
+Right-click any section to rename, move it up/down or delete it. Opening the menu keeps your current page in view; its heading identifies the section you clicked. You can also focus a section and press **Shift+F10**, or use **Section Options (⋯)** for the selected section. The first section cannot move up, the last cannot move down, and the only remaining section cannot be deleted. **Delete Section…** asks for confirmation and removes its pages; notebook Undo can restore them while the notebook stays open. Right-click a page and choose **Move Page to Section** to organize existing pages; the editor follows the moved page. An empty source section remains available, with **Add Page** ready to create its next page.
 
 New and older notebooks begin with **General**, which you can rename to your first topic. Section changes are autosaved, and switching sections commits pending handwriting and text. PDF import inserts pages into the current section; **Export** saves only the selected section's pages in their displayed order. A `.moye` notebook backup preserves every section, its name, order and editable page contents.
 
@@ -157,7 +157,7 @@ Use **Cancel Import** or press `Esc` while importing. Conversion has a two-minut
 
 Completed edits are queued for background saving, with a coalescing delay of at most two seconds. Completion time depends on the disk and document size. The saved status appears only after a successful database transaction. Switching notebooks, leaving the window, and closing normally also attempt to save.
 
-The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Moye 1.11.0 retains the formats used by 1.7.0 and reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; Moye 1.6.2 and earlier cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
+The default library is `%LOCALAPPDATA%\Moye\moye.db`. SQLite may create `moye.db-wal` and `moye.db-shm` beside it. Do not move only the database or delete its journal files while the app is open. Moye 1.12.0 retains the formats used by 1.7.0 and reads old libraries and version 1 backups, placing old pages in **General**. Libraries upgrade to schema 2 and new backups use format 2; Moye 1.6.2 and earlier cannot reopen these files. Text formatting and editable ink remain preserved. See [File format](FILE_FORMAT.md).
 
 Writing preferences are saved separately in `%LOCALAPPDATA%\Moye\writing-preferences.json`. This file contains presets and writing settings, and is **not included in `.moye` backups**. For a library started with `--data-dir`, both the database and preferences stay in that selected directory. A damaged settings file is preserved before defaults are offered; an unreadable or unsupported-version file is protected from replacement. A writing-settings warning offers details and retry when available. When an existing preferences file cannot be read or belongs to a newer version, tool changes apply to the current session only; notebooks still save and the app can close normally. Restart after resolving that file. A later write failure retains pending settings for retry.
 

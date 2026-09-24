@@ -50,31 +50,47 @@ public partial class MainWindow
         var target = new PageActionTarget(document, page.Page.SectionId, page.Page.Id);
         if (ResolvePageActionTarget(ViewModel, target) is null) return null;
         var menu = new ContextMenu { Tag = target };
-        var itemStyle = new Style(typeof(MenuItem), TryFindResource(typeof(MenuItem)) as Style);
-        itemStyle.Setters.Add(new Setter(FrameworkElement.MinHeightProperty, 44.0));
-        // ContextMenu also generates Separator containers. Apply this style to
-        // MenuItems explicitly so opening the menu never styles a Separator as one.
-        menu.Items.Add(new MenuItem { Header = $"Page {page.Number}", IsEnabled = false, MinHeight = 32, Style = itemStyle });
+        menu.Items.Add(CreateMenuHeading($"Page {page.Number}"));
         menu.Items.Add(new Separator());
-        Add("Duplicate Page", DuplicatePageClick);
-        Add("Move Page Up", MovePageUpClick, ViewModel.Pages.IndexOf(page) > 0);
-        Add("Move Page Down", MovePageDownClick, ViewModel.Pages.IndexOf(page) < ViewModel.Pages.Count - 1);
-        var sections = new MenuItem { Header = "Move Page to Section", Tag = target, IsEnabled = ViewModel.Sections.Count > 1, Style = itemStyle, ItemContainerStyle = itemStyle };
+        Add("Duplicate Page", "\uE8C8", DuplicatePageClick);
+        Add("Move Page Up", "\uE74A", MovePageUpClick, ViewModel.Pages.IndexOf(page) > 0);
+        Add("Move Page Down", "\uE74B", MovePageDownClick, ViewModel.Pages.IndexOf(page) < ViewModel.Pages.Count - 1);
+        var sections = new MenuItem { Header = "Move Page to Section", Icon = CreateMenuIcon("\uE8DE"), Tag = target, IsEnabled = ViewModel.Sections.Count > 1 };
         // A placeholder lets WPF show the submenu arrow before it is populated.
         sections.Items.Add(new MenuItem());
         sections.SubmenuOpened += MovePageSectionMenuOpened;
         menu.Items.Add(sections);
         menu.Items.Add(new Separator());
-        Add("Paper Style…", PageSettingsClick);
-        Add("Delete Page (Undo Available)", DeletePageClick);
+        Add("Paper Style…", "\uE790", PageSettingsClick);
+        menu.Items.Add(new Separator());
+        Add("Delete Page", "\uE74D", DeletePageClick, danger: true);
         return menu;
 
-        void Add(string title, RoutedEventHandler click, bool enabled = true)
+        void Add(string title, string glyph, RoutedEventHandler click, bool enabled = true, bool danger = false)
         {
-            var item = new MenuItem { Header = title, Tag = target, IsEnabled = enabled, Style = itemStyle };
+            var item = new MenuItem { Header = title, Icon = CreateMenuIcon(glyph), Tag = target, IsEnabled = enabled };
+            if (danger)
+            {
+                item.Style = (Style)FindResource("DangerMenuItem");
+                item.ToolTip = "Delete this page · Undo available while the notebook stays open";
+            }
             item.Click += click; menu.Items.Add(item);
         }
     }
+
+    private MenuItem CreateMenuHeading(string title) => new()
+    {
+        Header = new TextBlock { Text = title, MaxWidth = 240, TextTrimming = TextTrimming.CharacterEllipsis },
+        ToolTip = title,
+        Style = (Style)FindResource("ContextMenuHeading")
+    };
+
+    private static TextBlock CreateMenuIcon(string glyph) => new()
+    {
+        Text = glyph, FontFamily = new System.Windows.Media.FontFamily("Segoe Fluent Icons"),
+        FontSize = 16, FontWeight = FontWeights.Normal,
+        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+    };
 
     private bool ActivatePageAction(PageActionTarget target)
     {

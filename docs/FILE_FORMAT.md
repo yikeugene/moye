@@ -1,10 +1,10 @@
 # Moye notebook formats
 
-Moye 1.7.0 introduced notebook sections; Moye 1.8.0 through 1.11.0 use the same file formats. Application versions, SQLite schema versions and backup format versions are independent.
+Moye 1.7.0 introduced notebook sections; Moye 1.8.0 through 1.12.0 use the same file formats. Application versions, SQLite schema versions and backup format versions are independent.
 
 ## Compatibility
 
-| File | Moye 1.7.0–1.11.0 writer | Moye 1.7.0–1.11.0 reader | Moye 1.6.2 and earlier |
+| File | Moye 1.7.0–1.12.0 writer | Moye 1.7.0–1.12.0 reader | Moye 1.6.2 and earlier |
 |---|---|---|---|
 | SQLite library | Schema 2 | Migrates schema 0/1; reads 2 | Reject schema 2 |
 | `.moye` backup | Format 2 | Reads 1 and 2 | Reject format 2 |
